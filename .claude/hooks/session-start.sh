@@ -34,7 +34,7 @@ if [ -n "$target_bun" ] && [ "$current_bun" != "$target_bun" ]; then
   rm -f "$installer"
 fi
 
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+if [ -n "${CLAUDE_ENV_FILE:-}" ] && ! grep -qs "BUN_INSTALL=" "$CLAUDE_ENV_FILE"; then
   echo "export BUN_INSTALL=\"$BUN_INSTALL\"" >> "$CLAUDE_ENV_FILE"
   echo "export PATH=\"$BUN_INSTALL/bin:\$PATH\"" >> "$CLAUDE_ENV_FILE"
 fi

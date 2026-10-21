@@ -3,7 +3,7 @@
 MVP = PRD P0 scope (`docs/PRD.md` §6). Each phase ends with verification, a commit/push, and a stop
 for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done (approved)
 
-## Phase 0 — Environment setup ✅ (awaiting approval)
+## Phase 0 — Environment setup ✅
 
 - Bun latest (1.4.3); SessionStart hook for cloud sessions.
 - Skills: Next.js (`next-dev-loop`, `next-cache-components-optimizer`, `next-bundle-optimizer`),
@@ -13,20 +13,29 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - MCP: `next-devtools`, `shadcn`, `paypal` (sandbox-only wrapper); Supabase via connector.
 - Supabase project `settlix` created (`hdmaouuzkmwyobepooeg`, us-east-1, free tier).
 - `CLAUDE.md`, `.env.example`, PRD copied to `docs/PRD.md`.
+- Credentials added as cloud environment variables and verified (Supabase URL/publishable/secret,
+  PayPal sandbox client ID/secret). Still to add: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (Phase 4).
+- Deferred: PayPal **Transaction Search** still returns 403 for the sandbox app (permission not yet
+  in issued tokens). Not needed by Settlix; retry later for MCP `list_transactions`.
 
-## Phase 1 — App foundation & design system ⬜
+## Phase 1 — App foundation & design system ✅ (awaiting approval)
 
-No credentials needed.
-
-- Scaffold Next.js 16 (App Router, TS strict, Turbopack, `src/`) with Bun;
-  `reactCompiler: true`, `cacheComponents: true`.
-- Tailwind v4 + shadcn/ui init; PayPal-matched theme tokens (light + dark).
-- shadcn dashboard shell: collapsible sidebar, header with breadcrumbs, theme toggle, account menu,
-  mobile sheet navigation, persistent "Sandbox demo" indicator.
-- Route skeletons with loading/empty states: `/`, `/login`, `/dashboard`, `/cases`,
-  `/cases/[caseId]`, `/policies`, `/payments`, `/settings`, `/receipts/[receiptId]`.
-- Tooling: lint, typecheck, unit test runner, scripts.
-- **Exit:** `bun run build` passes; screenshots verified at mobile / tablet / desktop.
+- Next.js 16.4 (App Router, TS strict, Turbopack, `src/`) scaffolded with Bun 1.4.3;
+  `reactCompiler: true`, `cacheComponents: true` (+ Partial Prefetching, the 16.4 default).
+- shadcn/ui (Base UI, nova style, Tailwind v4, Lucide). Theme tokens mapped to PayPal's current
+  palette (bright blue `#0066F5`, deep blue `#002991`, light blue `#60CDFF`, cool neutrals) in light
+  and dark; status tokens `success` / `warning` / `info`; WCAG AA contrast checked. Geist fonts.
+- Shell from the shadcn `dashboard-01` block: inset sidebar (offcanvas sheet on mobile, closes on
+  navigation), header with URL breadcrumbs, PayPal Sandbox badge, theme menu (next-themes), account menu.
+- Routes: `/` landing, `/login` (login-03 block; inputs disabled until auth exists), `/dashboard`
+  (metric tiles with explicit no-data state, attention list, integration health), `/cases` (empty
+  inbox), `/cases/[caseId]` (3-column investigation workspace layout + loading skeleton), `/policies`,
+  `/payments` (sandbox details), `/settings`, `/receipts/[receiptId]` (+ loading skeleton), 404.
+- Tooling: ESLint (Next + React Compiler rules), Prettier + Tailwind plugin, `tsc` typecheck,
+  `bun test`; `bun run check` runs all four.
+- Verified: build passes (static + partial prerender for dynamic routes); `/_next/mcp` reports no
+  compilation or runtime errors; browser checks at 390px, 820px, 1440px in light and dark; mobile
+  sheet navigation and theme switching work; console clean.
 
 ## Phase 2 — Database, auth & seed data ⬜
 

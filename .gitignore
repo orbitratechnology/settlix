@@ -147,3 +147,18 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# next.js
+/out/
+next-env.d.ts
+
+# vercel
+.vercel
+
+# testing / playwright
+/test-results/
+/playwright-report/
+/blob-report/
+
+# agent-browser state
+.agent-browser/

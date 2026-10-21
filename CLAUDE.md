@@ -8,6 +8,26 @@ Hackathon 2026.
 - Full spec: `docs/PRD.md` (source of truth for behavior, data model, security, acceptance criteria).
 - Phase plan and status: `docs/ROADMAP.md`.
 
+@AGENTS.md
+
+## Commands
+
+- `bun run dev` — dev server on :3000 (Turbopack; exposes `/_next/mcp`)
+- `bun run check` — lint + format check + typecheck + unit tests (run before every commit)
+- `bun run build` — production build (must pass at the end of each phase)
+- `bun run format` — Prettier (with Tailwind class sorting); `src/components/ui/` is left as generated
+- `bun test` — unit tests (`*.test.ts`, Bun test runner)
+
+## Code layout
+
+- `src/app/(app)/` — authenticated dashboard routes inside the shadcn sidebar shell
+  (`layout.tsx` = `SidebarProvider` + `AppSidebar` + `SiteHeader`); `src/app/(auth)/login`; `src/app/page.tsx` landing.
+- `src/components/ui/` — shadcn components (base: Base UI, style: nova). Add more with the CLI; don't hand-edit
+  unless fixing a real bug. Navigation buttons are `<Link className={buttonVariants()}>` so they stay links.
+- `src/components/` — app components (shell, page header, brand); feature folders (`cases/`, `receipts/`, …).
+- `src/lib/navigation.ts` — sidebar items and breadcrumb labels.
+- Client hooks that read the URL (`usePathname`) sit inside `<Suspense>` so dynamic routes still prerender a shell.
+
 ## How we work
 
 - **Phase by phase.** Only work on the phase the user has approved. At the end of each phase: verify,
