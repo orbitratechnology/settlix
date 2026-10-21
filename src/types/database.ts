@@ -277,6 +277,7 @@ export type Database = {
           original_amount_minor: number
           payment_state: Database["public"]["Enums"]["order_payment_state"]
           paypal_capture_id: string | null
+          paypal_capture_request_id: string | null
           paypal_order_id: string | null
           updated_at: string
         }
@@ -292,6 +293,7 @@ export type Database = {
           original_amount_minor: number
           payment_state: Database["public"]["Enums"]["order_payment_state"]
           paypal_capture_id?: string | null
+          paypal_capture_request_id?: string | null
           paypal_order_id?: string | null
           updated_at?: string
         }
@@ -307,6 +309,7 @@ export type Database = {
           original_amount_minor?: number
           payment_state?: Database["public"]["Enums"]["order_payment_state"]
           paypal_capture_id?: string | null
+          paypal_capture_request_id?: string | null
           paypal_order_id?: string | null
           updated_at?: string
         }

@@ -3,11 +3,22 @@ import { DatabaseIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   caseStatusMeta,
+  paymentStateLabels,
+  paymentStateTones,
   refundAttemptStatusMeta,
   type CaseStatus,
+  type PaymentState,
   type RefundAttemptStatus,
 } from "@/lib/domain/labels"
 import type { Enums } from "@/types/database"
+
+export function PaymentStateBadge({ state }: { state: PaymentState }) {
+  return (
+    <Badge variant={paymentStateTones[state]}>
+      {paymentStateLabels[state]}
+    </Badge>
+  )
+}
 
 export function CaseStatusBadge({ status }: { status: CaseStatus }) {
   const meta = caseStatusMeta[status]

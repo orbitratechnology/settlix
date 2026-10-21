@@ -19,6 +19,9 @@ Hackathon 2026.
 - `bun test` — unit tests (`*.test.ts`, Bun test runner); `tests/integration/` runs against the real
   Supabase project (skipped without env) and needs the seed data
 - `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`)
+- `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
+  with the sandbox buyer in between). Scripts that import `server-only` modules run with
+  `bun --conditions=react-server`; tests mock `server-only` via `bunfig.toml` → `tests/setup.ts`.
 
 ## Database workflow
 
@@ -87,7 +90,10 @@ Hackathon 2026.
 - **AI**: Vercel AI SDK (`ai`) + `@ai-sdk/anthropic`, structured output validated with **Zod**.
   Model comes from `ANTHROPIC_MODEL` (server config), never hardcoded across the app.
 - **PayPal**: REST API (Orders v2, Payments v2 captures/refunds) via one server-only adapter in
-  `src/lib/paypal/`. Sandbox only.
+  `src/lib/paypal/`. Sandbox only. Buyer approval uses JS SDK v6 (`@paypal/react-paypal-js/sdk-v6`);
+  the browser sends only a catalog item ID (`src/lib/payments/catalog.ts`) and the PayPal order ID.
+  Checkout/capture logic lives in `src/lib/payments/checkout.ts`; JSON routes in `src/app/api/paypal/`
+  use `requireApiMember()` (same-origin + membership) from `src/lib/security/api.ts`.
 
 ## Non-negotiable safety rules (from PRD §8, §11.4, §14)
 

@@ -12,10 +12,12 @@
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:seed": "bun run scripts/seed.ts"
+    "db:seed": "bun run scripts/seed.ts",
+    "paypal:smoke": "bun --conditions=react-server scripts/paypal-sandbox-smoke.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@paypal/react-paypal-js": "10.6.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
     "class-variance-authority": "^0.7.1",

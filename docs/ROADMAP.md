@@ -37,7 +37,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   compilation or runtime errors; browser checks at 390px, 820px, 1440px in light and dark; mobile
   sheet navigation and theme switching work; console clean.
 
-## Phase 2 — Database, auth & seed data ✅ (awaiting approval)
+## Phase 2 — Database, auth & seed data ✅
 
 - Migration `supabase/migrations/20261021145549_core_schema.sql` (applied): all PRD §12 tables
   except P1 webhook events, enums, checks, indexes, composite `(merchant_id, id)` FKs.
@@ -65,14 +65,34 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Follow-ups: optional Auth hardening in the Supabase dashboard (see summary); a demo reset that
   refreshes seed dates before judging (Phase 7).
 
-## Phase 3 — PayPal Sandbox proof ⬜
+## Phase 3 — PayPal Sandbox proof 🟡 (built; real capture/refund blocked by the sandbox merchant account)
 
-Needs: PayPal Sandbox app Client ID + Secret; a sandbox buyer (personal) account.
-
-- Server-only PayPal adapter: OAuth token caching, create order, capture, get capture, refund
-  (with `PayPal-Request-Id`), get refund, typed error mapping. Money utils with unit tests.
-- `/payments`: sandbox test checkout (PayPal buttons) → server create/capture → persist order ID +
-  capture ID mapping → create a linked case. Integration status panel (no secrets shown).
+- Server-only adapter `src/lib/paypal/`: sandbox-only base URL guard, OAuth client-credentials token
+  cache (dedupes concurrent refreshes, replays once on 401 with the same `PayPal-Request-Id`), create /
+  get / capture order, get capture, refund (always explicit amount + `custom_id`), get refund, typed
+  errors (`rejected` / `retry_later` / `unknown`, branching on `details[].issue`, logging `debug_id`
+  only), minor-unit ↔ decimal-string conversion. Unit tests with mocked `fetch`.
+- Migration `20261021152456_order_capture_request_id.sql`: per-order capture idempotency key
+  (seed rows can't carry one).
+- Checkout: server price catalog (browser sends only an item ID) → `POST /api/paypal/orders`
+  (creates the PayPal order and a Settlix order row + audit event) → JS SDK v6 button
+  (`@paypal/react-paypal-js/sdk-v6`, `environment="sandbox"`) → `POST /api/paypal/orders/[id]/capture`
+  (stored request ID, `ORDER_ALREADY_CAPTURED` handled, unknown outcome keeps the key, capture
+  amount/currency/reference checked against the DB before marking CAPTURED). Same-origin + role checks.
+- `/payments`: live connection check (REST app ID, last payment event), test checkout, sandbox
+  payments table (PayPal order + capture IDs, state badges), "Check status" (re-reads PayPal and
+  finishes an approved but uncaptured order), "Create case" dialog for captured payments (amount
+  ceiling and currency from the DB) → redirects to the new case. Dashboard integration health now
+  checks the PayPal connection.
+- `bun run paypal:smoke create|finish <id>`: adapter proof against the real sandbox (capture,
+  partial refund, idempotent replay, remainder refund, over-refund rejected, read back). Writes nothing.
+- Verified: `bun run check` (35 tests), build, OAuth connection, in-app order creation (201) and the
+  PayPal popup at 390 / 820 / 1440 px, cancel notice, Check status.
+- **Blocked:** buyer approval fails with PayPal `PAYEE_ACCOUNT_LOCKED_OR_CLOSED` for the sandbox
+  business account behind the current REST app, so no capture or refund can happen yet. Fix: a new
+  US sandbox Business + Personal account pair and a REST app on that business account, then update
+  `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_SANDBOX_BUYER_EMAIL`,
+  `PAYPAL_SANDBOX_BUYER_PASSWORD`.
 - **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against it
   succeeds (cross-checked with the PayPal MCP `get_refund`).
 

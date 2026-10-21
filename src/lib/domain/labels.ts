@@ -128,6 +128,15 @@ export const paymentStateLabels: Record<PaymentState, string> = {
   REFUNDED: "Refunded",
 }
 
+export const paymentStateTones: Record<PaymentState, BadgeTone> = {
+  AWAITING_CAPTURE: "outline",
+  CAPTURE_PENDING: "warning",
+  CAPTURED: "success",
+  CAPTURE_DECLINED: "destructive",
+  PARTIALLY_REFUNDED: "info",
+  REFUNDED: "secondary",
+}
+
 export const clauseTypeLabels: Record<ClauseType, string> = {
   return_window: "Return window",
   full_refund: "Full refund",

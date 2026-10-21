@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table"
 import { getDashboardData } from "@/lib/data/dashboard"
 import { integrationConfig } from "@/lib/env/server"
+import { checkPayPalConnection } from "@/lib/paypal/client"
 import { formatDateTime } from "@/lib/format"
 import { formatMoney } from "@/lib/money/amounts"
 
@@ -63,6 +64,7 @@ export default function DashboardPage() {
 async function DashboardContent() {
   const data = await getDashboardData()
   const config = integrationConfig()
+  const paypal = config.paypal ? await checkPayPalConnection() : null
   const { counts } = data
 
   const metrics: Metric[] = [
@@ -115,9 +117,11 @@ async function DashboardContent() {
     {
       name: "PayPal Sandbox",
       detail: "Orders v2 · Payments v2",
-      status: config.paypal
-        ? { label: "Configured", tone: "outline" as const }
-        : { label: "Not configured", tone: "warning" as const },
+      status: !paypal
+        ? { label: "Not configured", tone: "warning" as const }
+        : paypal.ok
+          ? { label: "Connected", tone: "success" as const }
+          : { label: "Not connected", tone: "warning" as const },
     },
     {
       name: "Claude",
