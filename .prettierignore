@@ -3,3 +3,4 @@ src/components/ui/
 .claude/
 docs/
 bun.lock
+src/types/database.ts

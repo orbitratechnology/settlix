@@ -1,8 +1,9 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
 
 import { BrandMark } from "@/components/brand"
-import { LoginForm } from "@/components/login-form"
+import { LoginForm, LoginFormWithRedirect } from "@/components/login-form"
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -19,7 +20,10 @@ export default function LoginPage() {
           <BrandMark className="size-6 rounded-md" />
           Settlix
         </Link>
-        <LoginForm />
+        {/* The redirect target is request-time; the static shell renders the plain form. */}
+        <Suspense fallback={<LoginForm next={null} />}>
+          <LoginFormWithRedirect />
+        </Suspense>
       </div>
     </div>
   )

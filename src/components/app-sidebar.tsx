@@ -4,7 +4,6 @@ import Link from "next/link"
 
 import { BrandLockup } from "@/components/brand"
 import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +15,10 @@ import {
 } from "@/components/ui/sidebar"
 import { mainNav, secondaryNav } from "@/lib/navigation"
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  user,
+  ...props
+}: { user: React.ReactNode } & React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -32,13 +34,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <NavMain label="Operations" items={mainNav} />
         <NavMain items={secondaryNav} className="mt-auto" />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser
-          name="Demo Merchant"
-          detail="Sandbox workspace"
-          initials="DM"
-        />
-      </SidebarFooter>
+      <SidebarFooter>{user}</SidebarFooter>
     </Sidebar>
   )
 }

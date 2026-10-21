@@ -1,5 +1,10 @@
-import { InfoIcon } from "lucide-react"
+"use client"
 
+import { useActionState, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { AlertCircleIcon, FlaskConicalIcon } from "lucide-react"
+
+import { signIn, type SignInState } from "@/app/(auth)/login/actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,16 +21,33 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
+import { DEMO_ACCOUNT } from "@/lib/demo"
 import { cn } from "@/lib/utils"
 
-/**
- * Merchant sign-in form. Fields are disabled until Supabase Auth is connected,
- * so nothing (including a password) can be submitted from this placeholder.
- */
+/** Reads the post-login `next` path; must render inside <Suspense>. */
+export function LoginFormWithRedirect() {
+  const next = useSearchParams().get("next")
+  return <LoginForm next={next} />
+}
+
 export function LoginForm({
+  next,
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: { next: string | null } & React.ComponentProps<"div">) {
+  const [state, formAction, pending] = useActionState<SignInState, FormData>(
+    signIn,
+    {},
+  )
+  const [email, setEmail] = useState(state.email ?? "")
+  const [password, setPassword] = useState("")
+
+  function fillDemoAccount() {
+    setEmail(DEMO_ACCOUNT.email)
+    setPassword(DEMO_ACCOUNT.password)
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -34,16 +56,17 @@ export function LoginForm({
           <CardDescription>Use your merchant workspace account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form action={formAction}>
             <FieldGroup>
-              <Alert>
-                <InfoIcon />
-                <AlertTitle>Sign-in is not connected yet</AlertTitle>
-                <AlertDescription>
-                  Supabase authentication is added in the next build phase.
-                </AlertDescription>
-              </Alert>
-              <Field data-disabled>
+              {state.error ? (
+                <Alert variant="destructive">
+                  <AlertCircleIcon />
+                  <AlertTitle>Sign-in failed</AlertTitle>
+                  <AlertDescription>{state.error}</AlertDescription>
+                </Alert>
+              ) : null}
+              {next ? <input type="hidden" name="next" value={next} /> : null}
+              <Field data-invalid={state.error ? true : undefined}>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
@@ -51,30 +74,57 @@ export function LoginForm({
                   type="email"
                   autoComplete="email"
                   placeholder="merchant@example.com"
-                  disabled
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  aria-invalid={state.error ? true : undefined}
                   required
                 />
               </Field>
-              <Field data-disabled>
+              <Field data-invalid={state.error ? true : undefined}>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Input
                   id="password"
                   name="password"
                   type="password"
                   autoComplete="current-password"
-                  disabled
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  aria-invalid={state.error ? true : undefined}
                   required
                 />
               </Field>
               <Field>
-                <Button type="submit" disabled>
-                  Sign in
+                <Button type="submit" disabled={pending}>
+                  {pending ? <Spinner data-icon="inline-start" /> : null}
+                  {pending ? "Signing in…" : "Sign in"}
                 </Button>
               </Field>
             </FieldGroup>
           </form>
         </CardContent>
       </Card>
+
+      <Alert>
+        <FlaskConicalIcon />
+        <AlertTitle>Judging the hackathon demo?</AlertTitle>
+        <AlertDescription>
+          <p>
+            Sign in as the demo merchant ({DEMO_ACCOUNT.email} /{" "}
+            {DEMO_ACCOUNT.password}). It only sees seeded demo data and PayPal
+            Sandbox payments.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={fillDemoAccount}
+          >
+            Fill in demo account
+          </Button>
+        </AlertDescription>
+      </Alert>
+
       <FieldDescription className="px-6 text-center">
         Settlix is a hackathon demo that runs against the PayPal Sandbox. No
         real payments are processed.

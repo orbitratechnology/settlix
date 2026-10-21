@@ -12,15 +12,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { segmentLabels } from "@/lib/navigation"
+import { breadcrumbLabel } from "@/lib/navigation"
 
 type Crumb = { href: string; label: string }
 
 function toCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
-  return segments.map((segment, index) => ({
+  return segments.map((_, index) => ({
     href: `/${segments.slice(0, index + 1).join("/")}`,
-    label: segmentLabels[segment] ?? decodeURIComponent(segment),
+    label: breadcrumbLabel(segments, index),
   }))
 }
 

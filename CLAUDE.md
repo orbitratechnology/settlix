@@ -16,7 +16,24 @@ Hackathon 2026.
 - `bun run check` — lint + format check + typecheck + unit tests (run before every commit)
 - `bun run build` — production build (must pass at the end of each phase)
 - `bun run format` — Prettier (with Tailwind class sorting); `src/components/ui/` is left as generated
-- `bun test` — unit tests (`*.test.ts`, Bun test runner)
+- `bun test` — unit tests (`*.test.ts`, Bun test runner); `tests/integration/` runs against the real
+  Supabase project (skipped without env) and needs the seed data
+- `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`)
+
+## Database workflow
+
+- Migrations live in `supabase/migrations/` and are applied with the Supabase MCP `apply_migration`
+  (no local Docker). After applying, rename the local file to the version `list_migrations` reports,
+  run `get_advisors` (security + performance), and regenerate `src/types/database.ts` with
+  `generate_typescript_types`. Never edit applied migrations; add a new one.
+- Test triggers/constraints with `execute_sql` inside `begin; … rollback;`.
+- Access model: `authenticated` can only `SELECT` its merchant's rows (RLS via
+  `private.current_user_merchant_ids()`); `anon` has nothing. **All writes go through server-only code**
+  using `createAdminClient()` after `requireMember()` + a role check (`can.*`), always scoping by the
+  member's `workspace.id` (never a merchant ID from the request). Grants are explicit in migrations.
+- DB-enforced invariants: composite `(merchant_id, id)` FKs, no merchant moves, case/refund status
+  transition guards, immutable refund intent, one unresolved refund attempt per case, append-only
+  `audit_events`/`investigations`, seed rows never carry PayPal IDs.
 
 ## Code layout
 
@@ -26,7 +43,15 @@ Hackathon 2026.
   unless fixing a real bug. Navigation buttons are `<Link className={buttonVariants()}>` so they stay links.
 - `src/components/` — app components (shell, page header, brand); feature folders (`cases/`, `receipts/`, …).
 - `src/lib/navigation.ts` — sidebar items and breadcrumb labels.
+- `src/lib/supabase/` — `server.ts` (user-scoped, cookies), `admin.ts` (secret key, server-only),
+  `proxy.ts` (session refresh + optimistic redirects, used by `src/proxy.ts`).
+- `src/lib/security/auth.ts` — `getViewer()` / `requireMember()` (getClaims + membership via RLS),
+  role capabilities `can.*`. `src/lib/data/` — merchant-scoped reads used by pages.
+- `src/lib/domain/labels.ts` — status/category labels and badge tones; `src/lib/money/` — integer
+  minor-unit helpers (tested); `src/types/database.ts` — generated types.
 - Client hooks that read the URL (`usePathname`) sit inside `<Suspense>` so dynamic routes still prerender a shell.
+- Request-time data (session, merchant data) is read inside `<Suspense>` boundaries; `getViewer()`
+  calls `connection()` so auth is never prerendered or runtime-prefetched.
 
 ## How we work
 

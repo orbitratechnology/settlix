@@ -18,7 +18,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Deferred: PayPal **Transaction Search** still returns 403 for the sandbox app (permission not yet
   in issued tokens). Not needed by Settlix; retry later for MCP `list_transactions`.
 
-## Phase 1 — App foundation & design system ✅ (awaiting approval)
+## Phase 1 — App foundation & design system ✅
 
 - Next.js 16.4 (App Router, TS strict, Turbopack, `src/`) scaffolded with Bun 1.4.3;
   `reactCompiler: true`, `cacheComponents: true` (+ Partial Prefetching, the 16.4 default).
@@ -37,16 +37,33 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   compilation or runtime errors; browser checks at 390px, 820px, 1440px in light and dark; mobile
   sheet navigation and theme switching work; console clean.
 
-## Phase 2 — Database, auth & seed data ⬜
+## Phase 2 — Database, auth & seed data ✅ (awaiting approval)
 
-Needs: Supabase secret key (server-only); a couple of Supabase Auth dashboard settings.
-
-- Migrations for PRD §12 tables (merchants, merchant_members, orders, cases, return_policies,
-  policy_clauses, investigations, refund_attempts, audit_events) with enums, constraints, indexes.
-- RLS by merchant membership + role; append-only audit events; generated TS types.
-- Supabase SSR auth: login/logout, server-side session validation, protected routes, demo entry.
-- Seed demo merchant, policies with clauses, and cases for every FR-19 scenario (labeled demo).
-- **Exit:** sign in → see only your merchant's data; Supabase security advisors clean.
+- Migration `supabase/migrations/20261021145549_core_schema.sql` (applied): all PRD §12 tables
+  except P1 webhook events, enums, checks, indexes, composite `(merchant_id, id)` FKs.
+- DB guards: no merchant moves, case + refund-attempt status transition rules, immutable refund
+  intent, one unresolved refund attempt per case (partial unique index), append-only audit events
+  and investigations, seed rows can't carry PayPal IDs. 12 guard checks pass (rolled-back SQL test).
+- Access: `authenticated` is read-only via RLS (`private.current_user_merchant_ids()`), `anon` has no
+  access, writes are server-only (service role after authorization). Explicit grants.
+- Supabase SSR auth: `src/proxy.ts` session refresh + redirects, `getClaims()`-based viewer and
+  membership check, email/password sign-in server action (safe `next` redirect), sign-out,
+  `/workspace-required` for accounts without a workspace.
+- Demo access: public demo account `demo@settlix.example` (role admin, demo workspace only) shown
+  on the sign-in page with a "Fill in demo account" button.
+- Seed (`bun run db:seed`, idempotent): "Harbor & Pine Supply Co." demo merchant; Standard Return
+  Policy v1 (inactive) and v2 (active, 11 clauses with stable keys); 10 labeled demo cases covering
+  eligible full refund, partial refund, missing evidence, manual review, already refunded, invalid
+  mapping, failed refund, outside window, prompt injection, contradictory claims; demo refund
+  attempts and audit events (no PayPal calls); an isolation merchant for access tests.
+- Pages on real data: dashboard metrics (PayPal-confirmed totals exclude demo records), attention
+  list, integration health; inbox table; case page with request, order/payment, refund history and
+  activity timeline; policies with clauses; settings with role capabilities; account menu.
+- Verified: RLS integration tests (member sees only own merchant, other merchant invisible by ID,
+  no direct writes, signed-out gets nothing), security advisor clean except an Auth setting, build
+  passes, browser sign-in/out + pages at 390/820/1440px, cross-merchant case URL → not found.
+- Follow-ups: optional Auth hardening in the Supabase dashboard (see summary); a demo reset that
+  refreshes seed dates before judging (Phase 7).
 
 ## Phase 3 — PayPal Sandbox proof ⬜
 

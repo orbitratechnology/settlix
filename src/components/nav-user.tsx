@@ -1,5 +1,6 @@
 "use client"
 
+import { useTransition } from "react"
 import Link from "next/link"
 import {
   EllipsisVerticalIcon,
@@ -24,6 +25,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
+import { signOut } from "@/lib/security/actions"
 
 export type NavUserProps = {
   name: string
@@ -31,9 +35,10 @@ export type NavUserProps = {
   initials: string
 }
 
-/** Account menu. Until Supabase Auth is connected it shows the demo workspace. */
+/** Account menu for the signed-in member. */
 export function NavUser({ name, detail, initials }: NavUserProps) {
   const { isMobile } = useSidebar()
+  const [signingOut, startSignOut] = useTransition()
 
   return (
     <SidebarMenu>
@@ -91,13 +96,32 @@ export function NavUser({ name, detail, initials }: NavUserProps) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem render={<Link href="/login" />}>
-                <LogOutIcon />
+              <DropdownMenuItem
+                disabled={signingOut}
+                onClick={() => startSignOut(() => signOut())}
+              >
+                {signingOut ? <Spinner /> : <LogOutIcon />}
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
+export function NavUserSkeleton() {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <div className="flex items-center gap-2 p-2">
+          <Skeleton className="size-8 rounded-lg" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
       </SidebarMenuItem>
     </SidebarMenu>
   )

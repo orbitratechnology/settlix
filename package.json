@@ -11,10 +11,13 @@
     "test": "bun test",
     "check": "bun run lint && bun run format:check && bun run typecheck && bun run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.118.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.61.0",
@@ -22,6 +25,7 @@
     "next-themes": "^0.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "0.0.1",
     "shadcn": "^4.22.1",
     "tw-animate-css": "^1.4.0",
     "zod": "^4.6.7"

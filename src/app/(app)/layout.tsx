@@ -1,4 +1,8 @@
+import { Suspense } from "react"
+
 import { AppSidebar } from "@/components/app-sidebar"
+import { NavUserSkeleton } from "@/components/nav-user"
+import { SidebarUser } from "@/components/sidebar-user"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
@@ -12,7 +16,15 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar
+        variant="inset"
+        user={
+          // The session is request-time data, so the account menu streams in.
+          <Suspense fallback={<NavUserSkeleton />}>
+            <SidebarUser />
+          </Suspense>
+        }
+      />
       <SidebarInset>
         <SiteHeader />
         <main className="flex flex-1 flex-col">{children}</main>
