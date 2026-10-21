@@ -4,10 +4,10 @@ import { cache } from "react"
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 
+import type { MemberRole } from "@/lib/security/roles"
 import { createClient } from "@/lib/supabase/server"
-import type { Enums } from "@/types/database"
 
-export type MemberRole = Enums<"member_role">
+export { can, type MemberRole } from "@/lib/security/roles"
 
 export type Workspace = {
   id: string
@@ -87,20 +87,4 @@ export async function requireMember(): Promise<Member> {
   if (viewer.status === "anonymous") redirect("/login")
   if (viewer.status === "no-workspace") redirect("/workspace-required")
   return viewer
-}
-
-const roleRank: Record<MemberRole, number> = {
-  support: 0,
-  reviewer: 1,
-  admin: 2,
-  owner: 3,
-}
-
-/** Role capabilities (PRD §4, §12.2). Server code must check these before writes. */
-export const can = {
-  investigate: (role: MemberRole) => roleRank[role] >= roleRank.support,
-  createCases: (role: MemberRole) => roleRank[role] >= roleRank.support,
-  runSandboxCheckout: (role: MemberRole) => roleRank[role] >= roleRank.reviewer,
-  approveRefunds: (role: MemberRole) => roleRank[role] >= roleRank.reviewer,
-  managePolicies: (role: MemberRole) => roleRank[role] >= roleRank.admin,
 }

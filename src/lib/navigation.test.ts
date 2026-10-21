@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { breadcrumbLabel, isActivePath } from "@/lib/navigation"
+import { breadcrumbLabel, breadcrumbs, isActivePath } from "@/lib/navigation"
 
 describe("isActivePath", () => {
   test("matches the exact route", () => {
@@ -25,5 +25,22 @@ describe("breadcrumbLabel", () => {
     const segments = ["cases", "5eed0000-0000-4000-8000-000500000001"]
     expect(breadcrumbLabel(segments, 0)).toBe("Resolution Inbox")
     expect(breadcrumbLabel(segments, 1)).toBe("Case")
+  })
+})
+
+describe("breadcrumbs", () => {
+  test("builds one crumb per segment", () => {
+    expect(breadcrumbs("/policies/p1")).toEqual([
+      { href: "/policies", label: "Policies" },
+      { href: "/policies/p1", label: "Policy version" },
+    ])
+  })
+
+  test("routes a receipt's trail through its case", () => {
+    expect(breadcrumbs("/receipts/c1")).toEqual([
+      { href: "/cases", label: "Resolution Inbox" },
+      { href: "/cases/c1", label: "Case" },
+      { href: "/receipts/c1", label: "Receipt" },
+    ])
   })
 })

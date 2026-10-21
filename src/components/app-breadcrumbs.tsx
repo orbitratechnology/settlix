@@ -12,20 +12,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { breadcrumbLabel } from "@/lib/navigation"
-
-type Crumb = { href: string; label: string }
-
-function toCrumbs(pathname: string): Crumb[] {
-  const segments = pathname.split("/").filter(Boolean)
-  return segments.map((_, index) => ({
-    href: `/${segments.slice(0, index + 1).join("/")}`,
-    label: breadcrumbLabel(segments, index),
-  }))
-}
+import { breadcrumbs } from "@/lib/navigation"
 
 function Crumbs() {
-  const crumbs = toCrumbs(usePathname())
+  const crumbs = breadcrumbs(usePathname())
 
   return (
     <BreadcrumbList>

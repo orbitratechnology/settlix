@@ -8,7 +8,7 @@ import {
   HistoryIcon,
 } from "lucide-react"
 
-import { CopyButton } from "@/components/copy-button"
+import { ReplyDraft } from "@/components/investigations/reply-draft"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -76,11 +76,14 @@ function TextList({
 export function RecommendationView({
   record,
   stale,
+  decided,
   earlier,
   caseCurrency,
 }: {
   record: InvestigationRecord
   stale: boolean
+  /** A refund was approved, so a re-run can't change the decision. */
+  decided: boolean
   earlier: InvestigationRecord[]
   caseCurrency: string
 }) {
@@ -97,7 +100,13 @@ export function RecommendationView({
 
   return (
     <div className="flex flex-col gap-5">
-      {stale ? (
+      {stale && decided ? (
+        <p className="flex gap-2 text-sm text-muted-foreground">
+          <HistoryIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+          Kept as the record for the refund decision. The payment and refund
+          history have changed since it ran.
+        </p>
+      ) : stale ? (
         <Alert>
           <HistoryIcon />
           <AlertTitle>Records changed since this investigation</AlertTitle>
@@ -252,19 +261,11 @@ export function RecommendationView({
       ) : null}
 
       <Section title="Suggested customer reply">
-        <div className="flex flex-col gap-2 rounded-lg bg-muted p-3">
-          <p className="text-sm whitespace-pre-line">
-            {recommendation.suggestedCustomerReply}
-          </p>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              Draft only. Settlix never sends messages to customers.
-            </span>
-            <CopyButton
-              value={recommendation.suggestedCustomerReply}
-              label="Copy reply"
-            />
-          </div>
+        <div className="rounded-lg bg-muted p-3">
+          <ReplyDraft
+            key={record.id}
+            initial={recommendation.suggestedCustomerReply}
+          />
         </div>
       </Section>
 

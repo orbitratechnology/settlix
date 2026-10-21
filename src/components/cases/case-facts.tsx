@@ -1,6 +1,7 @@
 import { DatabaseIcon, LinkIcon, MessageSquareQuoteIcon } from "lucide-react"
 
 import { FactList } from "@/components/fact-list"
+import { ReconcileRefundButton } from "@/components/refunds/reconcile-refund-button"
 import { OriginBadge, RefundStatusBadge } from "@/components/status-badges"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +14,11 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import type { CaseDetail } from "@/lib/data/cases"
-import { paymentStateLabels, requestCategoryLabels } from "@/lib/domain/labels"
+import {
+  paymentStateLabels,
+  requestCategoryLabels,
+  type RefundAttemptStatus,
+} from "@/lib/domain/labels"
 import { formatDate, formatDateTime } from "@/lib/format"
 import { formatMoney } from "@/lib/money/amounts"
 
@@ -152,7 +157,29 @@ export function PaymentFactsCard({ detail }: { detail: CaseDetail }) {
   )
 }
 
-export function RefundHistoryCard({ detail }: { detail: CaseDetail }) {
+const attemptNotes: Partial<Record<RefundAttemptStatus, string>> = {
+  REQUESTED: "Approved and sent to PayPal. Waiting for PayPal's answer.",
+  PENDING:
+    "PayPal accepted it but hasn't completed it. No money is confirmed yet.",
+  RECOVERY_REQUIRED:
+    "PayPal's answer couldn't be confirmed. Reconcile before any new refund.",
+  COMPLETED: "PayPal confirmed the refund.",
+  FAILED: "No money was returned.",
+}
+
+const UNRESOLVED = new Set<RefundAttemptStatus>([
+  "REQUESTED",
+  "PENDING",
+  "RECOVERY_REQUIRED",
+])
+
+export function RefundHistoryCard({
+  detail,
+  canReconcile,
+}: {
+  detail: CaseDetail
+  canReconcile: boolean
+}) {
   const attempts = detail.refund_attempts
 
   return (
@@ -203,6 +230,16 @@ export function RefundHistoryCard({ detail }: { detail: CaseDetail }) {
                   <span className="text-xs text-destructive">
                     Error: <Mono>{attempt.error_code}</Mono>
                   </span>
+                ) : null}
+                {attempt.origin === "app" && attemptNotes[attempt.status] ? (
+                  <span className="text-xs text-muted-foreground">
+                    {attemptNotes[attempt.status]}
+                  </span>
+                ) : null}
+                {attempt.origin === "app" &&
+                UNRESOLVED.has(attempt.status) &&
+                canReconcile ? (
+                  <ReconcileRefundButton caseId={detail.id} />
                 ) : null}
               </li>
             ))}

@@ -31,7 +31,6 @@ export const segmentLabels: Record<string, string> = {
   policies: "Policies",
   payments: "Payments",
   settings: "Settings",
-  receipts: "Resolution Receipts",
 }
 
 /** Labels for the record page under a section, e.g. /cases/<id> → "Case". */
@@ -49,6 +48,25 @@ export function breadcrumbLabel(segments: string[], index: number) {
     (parent ? detailLabels[parent] : undefined) ??
     decodeURIComponent(segment)
   )
+}
+
+export type Crumb = { href: string; label: string }
+
+/** Header breadcrumbs for a pathname, one per segment. */
+export function breadcrumbs(pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean)
+  // Receipts have no index page and a receipt's ID is its case ID, so the
+  // trail runs through the case instead.
+  if (segments[0] === "receipts" && segments.length === 2) {
+    return [
+      ...breadcrumbs(`/cases/${segments[1]}`),
+      { href: pathname, label: detailLabels.receipts },
+    ]
+  }
+  return segments.map((_, index) => ({
+    href: `/${segments.slice(0, index + 1).join("/")}`,
+    label: breadcrumbLabel(segments, index),
+  }))
 }
 
 export function isActivePath(pathname: string | null, href: string) {

@@ -1,0 +1,228 @@
+"use client"
+
+import { useState, useTransition } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import {
+  BadgeCheckIcon,
+  CircleAlertIcon,
+  ClockIcon,
+  ReceiptTextIcon,
+  ShieldAlertIcon,
+} from "lucide-react"
+
+import { FactList } from "@/components/fact-list"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import type { RefundResult } from "@/lib/refunds/service"
+
+export type ApprovalDetails = {
+  caseId: string
+  caseNumber: string
+  orderReference: string
+  captureId: string
+  investigationId: string
+  amountMinor: number
+  currencyCode: string
+  /** Pre-formatted on the server so the dialog shows the exact same values. */
+  amount: string
+  captured: string
+  refundedBefore: string
+  remainingAfter: string
+  citations: string[]
+  explanation: string
+}
+
+const resultDisplay: Record<
+  RefundResult["status"],
+  { title: string; icon: typeof BadgeCheckIcon; destructive: boolean }
+> = {
+  completed: {
+    title: "Refund completed",
+    icon: BadgeCheckIcon,
+    destructive: false,
+  },
+  pending: {
+    title: "Refund pending at PayPal",
+    icon: ClockIcon,
+    destructive: false,
+  },
+  failed: { title: "Refund failed", icon: CircleAlertIcon, destructive: true },
+  recovery_required: {
+    title: "Outcome unknown: recovery required",
+    icon: ShieldAlertIcon,
+    destructive: true,
+  },
+  blocked: {
+    title: "Refund not issued",
+    icon: CircleAlertIcon,
+    destructive: true,
+  },
+}
+
+/**
+ * FR-09 explicit approval. Shows what will happen to the money, sends only a
+ * confirmation the server re-checks, and reports PayPal's actual result.
+ */
+export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const [result, setResult] = useState<RefundResult | null>(null)
+
+  function approve() {
+    startTransition(async () => {
+      let next: RefundResult
+      try {
+        const response = await fetch(
+          `/api/cases/${details.caseId}/approve-and-refund`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              investigationId: details.investigationId,
+              amountMinor: details.amountMinor,
+              currencyCode: details.currencyCode,
+            }),
+          },
+        )
+        const body: unknown = await response.json().catch(() => null)
+        next =
+          body && typeof body === "object" && "status" in body
+            ? (body as RefundResult)
+            : {
+                status: "blocked",
+                code: "unavailable",
+                message:
+                  "Settlix couldn't confirm what happened. Refresh the case before trying again.",
+              }
+      } catch {
+        next = {
+          status: "blocked",
+          code: "unavailable",
+          message:
+            "Settlix couldn't be reached. Refresh the case to see whether the refund started before trying again.",
+        }
+      }
+      // The page refreshes when the dialog closes: refreshing now would
+      // unmount this dialog (the case is no longer approvable) and hide the
+      // result.
+      setResult(next)
+    })
+  }
+
+  const display = result ? resultDisplay[result.status] : null
+  const Icon = display?.icon
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (pending) return
+        setOpen(next)
+        if (!next && result) {
+          setResult(null)
+          router.refresh()
+        }
+      }}
+    >
+      <AlertDialogTrigger render={<Button className="w-full" />}>
+        Approve and issue refund
+      </AlertDialogTrigger>
+      <AlertDialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Refund {details.amount} to the buyer?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Settlix re-checks eligibility and the amount, records your approval,
+            then asks PayPal to refund capture {details.captureId}. A completed
+            refund can&apos;t be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="@container/card flex flex-col gap-4">
+          <FactList
+            facts={[
+              { label: "Case", value: details.caseNumber },
+              { label: "Order", value: details.orderReference },
+              { label: "Captured", value: details.captured },
+              { label: "Refunded before", value: details.refundedBefore },
+              {
+                label: "This refund",
+                value: (
+                  <span className="text-base tabular-nums">
+                    {details.amount} {details.currencyCode}
+                  </span>
+                ),
+              },
+              { label: "Refundable after", value: details.remainingAfter },
+            ]}
+          />
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium">Basis</span>
+            <span className="flex flex-wrap gap-1">
+              {details.citations.map((key) => (
+                <Badge key={key} variant="outline" className="font-mono">
+                  {key}
+                </Badge>
+              ))}
+              <Badge variant="success">All checks passed</Badge>
+            </span>
+            <p className="line-clamp-4 text-muted-foreground">
+              {details.explanation}
+            </p>
+          </div>
+          <p className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">
+            PayPal Sandbox: real API call, test money. The result shown is
+            exactly what PayPal returns.
+          </p>
+          {result && display && Icon ? (
+            <Alert variant={display.destructive ? "destructive" : "default"}>
+              <Icon />
+              <AlertTitle>{display.title}</AlertTitle>
+              <AlertDescription>{result.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+
+        <AlertDialogFooter>
+          {result ? (
+            <>
+              <AlertDialogCancel>Close</AlertDialogCancel>
+              {result.status !== "blocked" ? (
+                <Link
+                  href={`/receipts/${details.caseId}`}
+                  className={buttonVariants()}
+                >
+                  <ReceiptTextIcon data-icon="inline-start" />
+                  Open receipt
+                </Link>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+              <Button onClick={approve} disabled={pending}>
+                {pending ? <Spinner data-icon="inline-start" /> : null}
+                {pending ? "Issuing refund…" : "Approve and issue refund"}
+              </Button>
+            </>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}

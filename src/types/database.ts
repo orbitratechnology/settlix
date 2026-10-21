@@ -369,6 +369,7 @@ export type Database = {
       }
       refund_attempts: {
         Row: {
+          approval_snapshot: Json | null
           approved_amount_minor: number
           approved_at: string
           approved_by: string | null
@@ -392,6 +393,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_snapshot?: Json | null
           approved_amount_minor: number
           approved_at: string
           approved_by?: string | null
@@ -415,6 +417,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_snapshot?: Json | null
           approved_amount_minor?: number
           approved_at?: string
           approved_by?: string | null
@@ -531,6 +534,92 @@ export type Database = {
       activate_policy_version: {
         Args: { p_merchant_id: string; p_policy_id: string }
         Returns: undefined
+      }
+      claim_refund_attempt: {
+        Args: {
+          p_amount_minor: number
+          p_approval_snapshot: Json
+          p_approved_by: string
+          p_attempt_id: string
+          p_case_id: string
+          p_currency: string
+          p_idempotency_key: string
+          p_investigation_id: string
+          p_merchant_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          approval_snapshot: Json | null
+          approved_amount_minor: number
+          approved_at: string
+          approved_by: string | null
+          capture_id: string | null
+          case_id: string
+          created_at: string
+          currency_code: string
+          error_code: string | null
+          id: string
+          idempotency_key: string
+          investigation_id: string | null
+          merchant_id: string
+          order_id: string
+          origin: Database["public"]["Enums"]["data_origin"]
+          paypal_debug_id: string | null
+          paypal_refund_id: string | null
+          request_hash: string
+          response_code: number | null
+          response_summary: Json | null
+          status: Database["public"]["Enums"]["refund_attempt_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "refund_attempts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      record_refund_outcome: {
+        Args: {
+          p_attempt_id: string
+          p_debug_id: string
+          p_error_code: string
+          p_merchant_id: string
+          p_paypal_refund_id: string
+          p_response_code: number
+          p_response_summary: Json
+          p_status: Database["public"]["Enums"]["refund_attempt_status"]
+        }
+        Returns: {
+          approval_snapshot: Json | null
+          approved_amount_minor: number
+          approved_at: string
+          approved_by: string | null
+          capture_id: string | null
+          case_id: string
+          created_at: string
+          currency_code: string
+          error_code: string | null
+          id: string
+          idempotency_key: string
+          investigation_id: string | null
+          merchant_id: string
+          order_id: string
+          origin: Database["public"]["Enums"]["data_origin"]
+          paypal_debug_id: string | null
+          paypal_refund_id: string | null
+          request_hash: string
+          response_code: number | null
+          response_summary: Json | null
+          status: Database["public"]["Enums"]["refund_attempt_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "refund_attempts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

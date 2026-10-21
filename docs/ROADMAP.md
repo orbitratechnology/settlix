@@ -102,7 +102,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against a
   real capture succeeds (cross-checked with the PayPal MCP `get_refund`). ✅
 
-## Phase 4 — Policies, AI investigation & eligibility engine ✅ (awaiting approval)
+## Phase 4 — Policies, AI investigation & eligibility engine ✅
 
 - Migration `20261021182739_policy_publishing.sql`: policy versions are drafts until published;
   published versions and their clauses are immutable (DB guards), only published versions can be
@@ -169,20 +169,61 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   (contradictions), STX-1023 (real sandbox capture) → needs evidence (the customer mentions photos
   but none are recorded). 22/22 citations verified. DEMO-101/102/106 are left `NEW` so the demo can
   start an investigation live.
-- Phase 5 note: STX-1023 needs a way to record the evidence (e.g. a merchant note) before it can
-  become eligible for approval.
+- Phase 5 follow-up: merchant notes can now be added from the case page (see Phase 5 for STX-1023).
 - **Exit:** investigations on seeded cases produce valid, cited, stored recommendations. ✅
 
-## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ⬜
+## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ✅ (awaiting approval)
 
-- Resolution Inbox (shadcn data table): search, filter by status/category, sort by date/amount,
-  status counts, attention indicators.
-- Investigation workspace (facts | AI recommendation & evidence | checks & action), responsive.
-- Request evidence / send to review actions.
-- "Approve and issue refund": confirmation dialog, Postgres claim function (row lock + unique active
-  attempt + idempotency key), PayPal refund, persisted response, state transitions, audit events.
-- Resolution Receipt page with timeline and copyable summary; editable customer reply draft.
-- **Exit:** case → investigate → approve → genuine sandbox refund → receipt, end to end.
+- Migration `20261021194503_refund_workflow.sql`: immutable `refund_attempts.approval_snapshot`;
+  `claim_refund_attempt()` (locks case + order; requires `READY_FOR_APPROVAL`, the latest
+  investigation, an app capture, a refundable payment state, matching currency, no unresolved
+  attempt on the order, and 0 < amount ≤ captured − completed; inserts the `REQUESTED` attempt with
+  idempotency key, request hash and snapshot; case → `REFUND_PENDING`); `record_refund_outcome()`
+  (attempt + case + order payment state in one transaction; terminal outcomes are final, repeats
+  are no-ops). service_role only. 19 rolled-back SQL checks passed.
+- Refund service (`src/lib/refunds/`): role check → load case + latest investigation → re-run the
+  eligibility engine with a freshness check → amount/currency must equal what the merchant
+  confirmed → claim → audit `refund.approved` → PayPal refund (`PayPal-Request-Id` = stored key,
+  explicit amount, `custom_id` = attempt ID) → verified outcome → `record_refund_outcome` → audit.
+  Only a `COMPLETED` refund matching amount, currency and `custom_id` counts; 202s, malformed or
+  mismatched bodies and transport errors become `RECOVERY_REQUIRED`. Reconcile ("Check with
+  PayPal") GETs a known refund or replays the exact stored request (hash-checked) with the same key;
+  it never creates a new refund. Routes `POST /api/cases/[caseId]/approve-and-refund` and
+  `/reconcile-refund` (same-origin + membership, zod bodies, `maxDuration` 60).
+- Resolution Inbox: quick views with counts (all / needs attention / open), search (case, customer,
+  order, issue), status and category filters, sort by date or amount (sortable headers with
+  `aria-sort`), latest AI recommendation column, attention icons, filtered empty state.
+- Case workspace actions: add merchant note (appended with a timestamp), request evidence (prefilled
+  from the missing evidence), send to review, decline (reviewer+). Conditional status updates and
+  audit events. Approval dialog: case, order, captured, refunded before, this refund, refundable
+  after, cited clauses, sandbox notice; it shows PayPal's actual result and links to the receipt.
+  Decided cases (pending / refunded / recovery) show a neutral state instead of blocking checks.
+- Resolution Receipt (`/receipts/[caseId]`): recommended vs actual result, approver and time, refund
+  attempt + PayPal refund ID + HTTP status, decision basis (model, prompt version, checks at
+  approval), verified policy evidence, mapped order/capture, customer response (factual for
+  completed/pending refunds, no promised dates; editable, never sent), audit timeline, copyable
+  summary. Seeded records read as demo records.
+- Verified: `bun run check` (135 tests), build, advisors (no new findings), Next.js `get_errors`
+  clean, no horizontal overflow on inbox / case / receipt / policies / payments / dashboard at
+  390 / 820 / 1440 px.
+- End-to-end in the app (real PayPal Sandbox, real Claude, cross-checked with the PayPal MCP
+  `get_refund`):
+  - Fresh sandbox payments are minutes old and have no shipping record, so claims about how an item
+    *arrived* honestly go to review: STX-1023 (cracked carafe 29 s after capture) and STX-1040
+    (damage at a studio pickup; FR-1 covers items that *arrive* damaged; photo not viewed) →
+    **Needs review**. STX-1039 (cancel before dispatch) first went to review too: no clause covered
+    pre-dispatch cancellations.
+  - Policy gap closed through the Policies UI as the merchant would: **Standard Return Policy v3**
+    (v2's clauses + `CN-1` "Cancellation before dispatch": full refund, no return) published and
+    activated. Investigations run against v2 now show the "records changed" banner; re-activating
+    v2 makes them current again.
+  - **STX-1039**: checkout `SBX-CDDB4468` → capture `7BH421492E427902V` ($42.00) → re-run → full
+    refund citing CN-1, all checks passed → approved → refund **`1J3010819W148030C` COMPLETED**
+    (HTTP 201) → case Refunded, payment Refunded → receipt.
+  - **STX-1041** (at 390 px): checkout `SBX-C5B4900D` → capture `01543033H1725205T` ($24.00) →
+    full refund citing CN-1 + RW-1 → approved → refund **`5MY33362NF3568039` COMPLETED** → dialog
+    kept the result → receipt.
+- **Exit:** case → investigate → approve → genuine sandbox refund → receipt, end to end. ✅
 
 ## Phase 6 — Reliability & negative paths ⬜
 

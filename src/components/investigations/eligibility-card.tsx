@@ -1,15 +1,21 @@
+import Link from "next/link"
 import {
   ChevronDownIcon,
   CircleCheckIcon,
   CircleMinusIcon,
   CircleXIcon,
+  ReceiptTextIcon,
   ScaleIcon,
   TriangleAlertIcon,
 } from "lucide-react"
 
 import { FactList } from "@/components/fact-list"
+import {
+  ApproveRefundDialog,
+  type ApprovalDetails,
+} from "@/components/refunds/approve-refund-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -30,7 +36,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
-import { eligibilityOutcomeMeta } from "@/lib/domain/labels"
+import {
+  caseStatusMeta,
+  eligibilityOutcomeMeta,
+  type CaseStatus,
+} from "@/lib/domain/labels"
 import { formatMoney } from "@/lib/money/amounts"
 import type {
   CheckStatus,
@@ -67,8 +77,17 @@ const statusDisplay: Record<
  */
 export function EligibilityCard({
   result,
+  approval,
+  approvalUnavailable,
+  decided,
 }: {
   result: EligibilityResult | null
+  /** Present only when the signed-in member can approve this case now. */
+  approval: ApprovalDetails | null
+  /** Why an eligible case can't be approved by this member right now. */
+  approvalUnavailable: string | null
+  /** Set once a refund was approved: the checks then only block repeats. */
+  decided: { caseId: string; status: CaseStatus } | null
 }) {
   return (
     <Card className="@container/card">
@@ -81,7 +100,12 @@ export function EligibilityCard({
       </CardHeader>
       <CardContent>
         {result ? (
-          <EligibilityDetails result={result} />
+          <EligibilityDetails
+            result={result}
+            approval={approval}
+            approvalUnavailable={approvalUnavailable}
+            decided={decided}
+          />
         ) : (
           <Empty className="border">
             <EmptyHeader>
@@ -101,20 +125,47 @@ export function EligibilityCard({
   )
 }
 
-function EligibilityDetails({ result }: { result: EligibilityResult }) {
+function EligibilityDetails({
+  result,
+  approval,
+  approvalUnavailable,
+  decided,
+}: {
+  result: EligibilityResult
+  approval: ApprovalDetails | null
+  approvalUnavailable: string | null
+  decided: { caseId: string; status: CaseStatus } | null
+}) {
   const outcome = eligibilityOutcomeMeta[result.outcome]
+  const decision = decided ? caseStatusMeta[decided.status] : null
   const { amounts } = result
   const money = (minor: number) => formatMoney(minor, amounts.currencyCode)
   const eligible = result.outcome === "eligible_for_approval"
-  const flagged = result.checks.filter(
-    (check) => check.status === "fail" || check.status === "warning",
-  )
+  // After a decision every check that fails only blocks a repeat refund, so
+  // listing them as problems would misread a resolved case.
+  const flagged = decided
+    ? []
+    : result.checks.filter(
+        (check) => check.status === "fail" || check.status === "warning",
+      )
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Badge variant={outcome.tone}>{outcome.label}</Badge>
-        <p className="text-sm">{result.summary}</p>
+        {decision ? (
+          <>
+            <Badge variant={decision.tone}>{decision.label}</Badge>
+            <p className="text-sm">
+              {decision.description} Settlix blocks any further refund for this
+              case.
+            </p>
+          </>
+        ) : (
+          <>
+            <Badge variant={outcome.tone}>{outcome.label}</Badge>
+            <p className="text-sm">{result.summary}</p>
+          </>
+        )}
       </div>
 
       <FactList
@@ -140,15 +191,21 @@ function EligibilityDetails({ result }: { result: EligibilityResult }) {
                 ? "Not stated"
                 : money(amounts.requestedMinor),
           },
-          {
-            label: "Refund amount (server-checked)",
-            value:
-              amounts.proposedMinor === null ? (
-                <span className="text-muted-foreground">None proposed</span>
-              ) : (
-                money(amounts.proposedMinor)
-              ),
-          },
+          ...(decided
+            ? []
+            : [
+                {
+                  label: "Refund amount (server-checked)",
+                  value:
+                    amounts.proposedMinor === null ? (
+                      <span className="text-muted-foreground">
+                        None proposed
+                      </span>
+                    ) : (
+                      money(amounts.proposedMinor)
+                    ),
+                },
+              ]),
         ]}
       />
 
@@ -156,7 +213,7 @@ function EligibilityDetails({ result }: { result: EligibilityResult }) {
 
       {flagged.length > 0 ? (
         <CheckList checks={flagged} />
-      ) : (
+      ) : decided ? null : (
         <p className="text-sm text-muted-foreground">Every check passed.</p>
       )}
 
@@ -179,12 +236,30 @@ function EligibilityDetails({ result }: { result: EligibilityResult }) {
 
       <Separator />
 
-      {eligible ? (
+      {decided ? (
+        <Link
+          href={`/receipts/${decided.caseId}`}
+          className={buttonVariants({
+            variant: "outline",
+            className: "w-full",
+          })}
+        >
+          <ReceiptTextIcon data-icon="inline-start" />
+          Open receipt
+        </Link>
+      ) : eligible && approval ? (
+        <div className="flex flex-col gap-2">
+          <ApproveRefundDialog details={approval} />
+          <p className="text-xs text-muted-foreground">
+            Your approval is recorded with the amount before PayPal is called.
+            Nothing is refunded until you confirm.
+          </p>
+        </div>
+      ) : eligible ? (
         <div className="flex flex-col gap-2">
           <Button disabled>Approve and issue refund</Button>
           <p className="text-xs text-muted-foreground">
-            Refund approval and PayPal execution are enabled in the next build
-            phase. Nothing has been refunded.
+            {approvalUnavailable ?? "Approval isn't available right now."}
           </p>
         </div>
       ) : (

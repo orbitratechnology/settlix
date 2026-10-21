@@ -41,6 +41,11 @@ Hackathon 2026.
   `audit_events`/`investigations`, seed rows never carry PayPal IDs, published policy versions and
   their clauses are immutable (new versions start as drafts; only published versions can be
   active; `activate_policy_version()` swaps the active version atomically).
+- Refund DB functions (service_role only): `claim_refund_attempt()` locks the case and order,
+  re-checks status, latest investigation, capture mapping, payment state, currency, and balance, then
+  inserts the `REQUESTED` attempt (with request hash + approval snapshot) and moves the case to
+  `REFUND_PENDING`; `record_refund_outcome()` updates attempt, case, and order payment state in one
+  transaction (terminal outcomes can't change).
 
 ## Code layout
 
@@ -49,11 +54,11 @@ Hackathon 2026.
 - `src/components/ui/` — shadcn components (base: Base UI, style: nova). Add more with the CLI; don't hand-edit
   unless fixing a real bug. Navigation buttons are `<Link className={buttonVariants()}>` so they stay links.
 - `src/components/` — app components (shell, page header, brand); feature folders (`cases/`, `receipts/`, …).
-- `src/lib/navigation.ts` — sidebar items and breadcrumb labels.
+- `src/lib/navigation.ts` — sidebar items and breadcrumbs (a receipt's trail runs through its case).
 - `src/lib/supabase/` — `server.ts` (user-scoped, cookies), `admin.ts` (secret key, server-only),
   `proxy.ts` (session refresh + optimistic redirects, used by `src/proxy.ts`).
-- `src/lib/security/auth.ts` — `getViewer()` / `requireMember()` (getClaims + membership via RLS),
-  role capabilities `can.*`. `src/lib/data/` — merchant-scoped reads used by pages.
+- `src/lib/security/auth.ts` — `getViewer()` / `requireMember()` (getClaims + membership via RLS);
+  role capabilities `can.*` live in `roles.ts` (pure). `src/lib/data/` — merchant-scoped reads used by pages.
 - `src/lib/domain/labels.ts` — status/category labels and badge tones; `src/lib/money/` — integer
   minor-unit helpers (tested); `src/types/database.ts` — generated types.
 - `src/lib/ai/` — Claude via AI SDK: `client.ts` (model from env, pinned base URL), `schemas.ts`
@@ -64,6 +69,15 @@ Hackathon 2026.
   `warnings.ts`. `src/lib/investigations/` — `context.ts` (evidence + stable hash), `load.ts`,
   `service.ts` (claim → Claude → validate → persist → audit; restores the case on failure),
   `records.ts` (parse stored rows). The case page re-runs the engine on current records.
+- `src/lib/refunds/` — `service.ts` (`approveAndRefund`: role → re-run eligibility → claim RPC →
+  audit → PayPal → `record_refund_outcome`; `reconcileRefund` GETs a known refund or replays the
+  stored request with the same `PayPal-Request-Id`), `outcome.ts` (PayPal response → outcome;
+  anything unverified is `RECOVERY_REQUIRED`). Routes: `POST /api/cases/[caseId]/approve-and-refund`
+  and `/reconcile-refund`.
+- `src/lib/cases/` — `inbox.ts` (search/filter/sort/counts), `actions.ts` (which status moves note,
+  request evidence, send to review, and decline allow); server actions in `cases/[caseId]/actions.ts`.
+- `src/lib/receipts/receipt.ts` (receipt state, factual reply, copyable summary) +
+  `src/lib/data/receipts.ts`; `/receipts/[receiptId]` uses the case ID.
 - Client hooks that read the URL (`usePathname`) sit inside `<Suspense>` so dynamic routes still prerender a shell.
 - Request-time data (session, merchant data) is read inside `<Suspense>` boundaries; `getViewer()`
   calls `connection()` so auth is never prerendered or runtime-prefetched.
