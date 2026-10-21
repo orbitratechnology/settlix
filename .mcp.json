@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@0.4.0"]
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["-y", "shadcn@4.22.1", "mcp"]
+    },
+    "paypal": {
+      "command": "bash",
+      "args": ["scripts/mcp/paypal-mcp.sh"]
+    }
+  }
+}
