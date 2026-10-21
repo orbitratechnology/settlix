@@ -14,7 +14,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Supabase project `settlix` created (`hdmaouuzkmwyobepooeg`, us-east-1, free tier).
 - `CLAUDE.md`, `.env.example`, PRD copied to `docs/PRD.md`.
 - Credentials added as cloud environment variables and verified (Supabase URL/publishable/secret,
-  PayPal sandbox client ID/secret). `ANTHROPIC_MODEL` added (`claude-haiku-5-5`); `ANTHROPIC_API_KEY` is not visible in cloud sessions (see Phase 4).
+  PayPal sandbox client ID/secret). `ANTHROPIC_MODEL` (`claude-haiku-5-5`) and `SETTLIX_ANTHROPIC_API_KEY` added (see Phase 4).
 - Deferred: PayPal **Transaction Search** still returns 403 for the sandbox app (permission not yet
   in issued tokens). Not needed by Settlix; retry later for MCP `list_transactions`.
 
@@ -102,7 +102,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against a
   real capture succeeds (cross-checked with the PayPal MCP `get_refund`). ✅
 
-## Phase 4 — Policies, AI investigation & eligibility engine 🟡 (built; live Claude run pending)
+## Phase 4 — Policies, AI investigation & eligibility engine ✅ (awaiting approval)
 
 - Migration `20261021182739_policy_publishing.sql`: policy versions are drafts until published;
   published versions and their clauses are immutable (DB guards), only published versions can be
@@ -150,11 +150,28 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   duplicate-ID error → publish → new version → delete draft → deactivate; citation deep link; case
   workspace with a mock-model investigation on the isolation merchant), route rejects cross-site
   calls.
-- **Blocked:** `ANTHROPIC_API_KEY` is not visible in the cloud session (only `ANTHROPIC_MODEL` is),
-  so no real Claude investigation or live eval has run yet. Nothing AI-generated was faked; the
-  demo merchant has no investigations.
-- **Exit:** investigations on seeded cases produce valid, cited, stored recommendations — pending the
-  first live run (`bun run ai:eval`, then investigate the seeded cases in the app).
+- Cloud sessions don't pass `ANTHROPIC_API_KEY` to the agent; the key lives in
+  `SETTLIX_ANTHROPIC_API_KEY` and commands run as `ANTHROPIC_API_KEY="$SETTLIX_ANTHROPIC_API_KEY" …`.
+- Live eval (`claude-haiku-5-5`, results in `evals/results/`):
+  - Prompt v1, 10 fixtures: 9/10 correct. The miss exposed a flaw in the fixture (and seeded
+    DEMO-101): "arrived today" vs "tracking shows delivery 4 days ago", then "glass carafe" vs a
+    "stoneware" order. Claude rightly treated both as conflicts. Fixed the text in the fixture, the
+    seed, and the existing DEMO-101/HP-10421 rows.
+  - Prompt v2 (merchant notes count as merchant records; a contradiction is a direct conflict, not
+    an unstated detail), 10 fixtures × 3 runs: schema-valid 30/30, correct action and outcome 29/30,
+    citations verified 84/84, expected clause cited 21/21, missing evidence 3/3, contradictions
+    3/3, injection flagged 3/3, approvable amount within balance 6/6, never approvable when it must
+    not be 30/30. The one miss sent a partial refund to review because the order total might include
+    shipping (PR-1 caps at 25% of the item price) — a cautious, defensible escalation.
+- Real investigations in the app (demo merchant, prompt v2): DEMO-103 → needs evidence (via the UI,
+  ~12 s), DEMO-104 → review (over $500, repeat requester), DEMO-108 → not eligible (52 days),
+  DEMO-109 → review (injection flagged, $4,800 asked on a $48 order), DEMO-110 → review
+  (contradictions), STX-1023 (real sandbox capture) → needs evidence (the customer mentions photos
+  but none are recorded). 22/22 citations verified. DEMO-101/102/106 are left `NEW` so the demo can
+  start an investigation live.
+- Phase 5 note: STX-1023 needs a way to record the evidence (e.g. a merchant note) before it can
+  become eligible for approval.
+- **Exit:** investigations on seeded cases produce valid, cited, stored recommendations. ✅
 
 ## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ⬜
 

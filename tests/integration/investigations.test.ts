@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, test } from "bun:test"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { MockLanguageModelV4 } from "ai/test"
 
+import { PROMPT_VERSION } from "@/lib/ai/prompts"
 import type { ResolutionRecommendation } from "@/lib/ai/schemas"
 import type { Member } from "@/lib/security/auth"
 import type { Database } from "@/types/database"
@@ -121,7 +122,7 @@ describe.skipIf(!configured)("investigation service", () => {
       .eq("id", result.investigationId)
       .single()
     expect(row?.merchant_id).toBe(ISOLATION_MERCHANT_ID)
-    expect(row?.prompt_version).toBe("investigation-v1")
+    expect(row?.prompt_version).toBe(PROMPT_VERSION)
     expect(row?.model_id).toBe("mock-model")
     expect(row?.input_context_hash).toMatch(/^[a-f0-9]{64}$/)
     const stored = row?.recommendation_json as {

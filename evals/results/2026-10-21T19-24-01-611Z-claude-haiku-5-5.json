@@ -1,0 +1,371 @@
+{
+  "summary": {
+    "model": "claude-haiku-5-5",
+    "promptVersion": "investigation-v1",
+    "runAt": "2026-10-21T19:24:01.611Z",
+    "fixtures": 1,
+    "runs": 3,
+    "schemaValid": "3/3 (100%)",
+    "correctAction": "1/3 (33%)",
+    "correctOutcome": "1/3 (33%)",
+    "citationValidity": "8/8 (100%)",
+    "unsupportedCitationRate": "0/8 (0%)",
+    "expectedCitation": "3/3 (100%)",
+    "missingEvidenceDetection": "n/a",
+    "contradictionDetection": "n/a",
+    "injectionFlagged": "n/a",
+    "amountBound": "n/a",
+    "escalation": "3/3 (100%)"
+  },
+  "scores": [
+    {
+      "fixture": "eligible-full-refund",
+      "run": 1,
+      "ok": true,
+      "action": "full_refund",
+      "outcome": "eligible_for_approval",
+      "checks": {
+        "action": true,
+        "outcome": true,
+        "citationsValid": true,
+        "escalation": true,
+        "cites": true
+      },
+      "invalidCitations": 0,
+      "totalCitations": 3,
+      "approvableMinor": 8900,
+      "latencyMs": 12125,
+      "usage": {
+        "inputTokens": 4851,
+        "outputTokens": 2770
+      },
+      "recommendation": {
+        "summary": "The customer asks for a full refund of $89.00 because the glass carafe arrived cracked and leaks. The merchant notes confirm two customer photos showing the crack and a crushed box corner, and carrier tracking shows delivery the day before the request, within the 30-day window.",
+        "extractedFacts": [
+          {
+            "fact": "Customer reports the glass carafe arrived with a long crack down the side and leaks when water is poured in.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Customer says they sent two photos of the crack and the box.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "Carrier tracking confirms delivery the day before the request was received.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "Order SBX-EVAL1 (stoneware pour-over coffee set) was captured on 2026-10-10 with payment state CAPTURED.",
+            "source": "order_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "$89.00 (8900 minor units) was captured and $89.00 remains refundable; nothing has been refunded or is unresolved.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "The request was received 5 days after capture, which is within the 30-day return window.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "The customer has no prior refund requests on record.",
+            "source": "refund_history",
+            "confidence": "high"
+          },
+          {
+            "fact": "The requested amount of $89.00 is under the $500 manual-review threshold and under the $100 threshold for damaged items that do not need to be returned.",
+            "source": "policy",
+            "confidence": "high"
+          }
+        ],
+        "proposedAction": "full_refund",
+        "proposedAmountMinor": 8900,
+        "currencyCode": "USD",
+        "policyCitations": [
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "RW-1",
+            "supportingQuote": "Refund requests must be submitted within 30 days of the order's capture date.",
+            "explanation": "The order was captured on 2026-10-10 and the request was received on 2026-10-16, which is within 30 days."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "FR-1",
+            "supportingQuote": "If an item arrives damaged or defective, the customer is eligible for a full refund of the item price once they provide at least one photo showing the damage.",
+            "explanation": "The customer reports the carafe arrived cracked, and the merchant notes confirm a photo of the visible crack. The item price is $89.00, which is under $100, so the item does not need to be returned."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "EV-1",
+            "supportingQuote": "Damage, defect, and cosmetic claims require at least one clear photo of the item and the issue.",
+            "explanation": "The merchant notes confirm two customer photos showing the crack on the carafe, which meets the photo requirement for damage claims."
+          }
+        ],
+        "evidenceFor": [
+          "Merchant notes confirm two customer photos in the help desk showing a visible crack on the carafe.",
+          "Merchant notes confirm a crushed corner on the shipping box.",
+          "Carrier tracking confirms delivery the day before the request.",
+          "The request was made within 5 days of capture, within the 30-day window.",
+          "No prior refunds exist on this order."
+        ],
+        "evidenceMissing": [],
+        "contradictions": [],
+        "riskFlags": [],
+        "explanation": "The customer's claim of a cracked carafe on arrival falls under FR-1, which grants a full refund of the item price once a damage photo is provided. The merchant notes confirm that photos were received showing the crack, so the EV-1 photo requirement is met. The request is within the RW-1 return window, the amount is $89.00 which is within the remaining refundable balance, and no manual-review condition under MR-1 applies. Because the item is under $100, return is not required. The merchant should still confirm the photos show the damage as described before sending the refund.",
+        "suggestedCustomerReply": "Hello, thank you for sending the photos of your pour-over set. We're sorry the glass carafe arrived cracked. We've reviewed your request and will follow up with you on the next steps shortly. Please reply here if you have any questions."
+      }
+    },
+    {
+      "fixture": "eligible-full-refund",
+      "run": 2,
+      "ok": true,
+      "action": "manual_review",
+      "outcome": "requires_review",
+      "checks": {
+        "action": false,
+        "outcome": false,
+        "citationsValid": true,
+        "escalation": true,
+        "cites": true
+      },
+      "invalidCitations": 0,
+      "totalCitations": 2,
+      "approvableMinor": null,
+      "latencyMs": 10327,
+      "usage": {
+        "inputTokens": 4851,
+        "outputTokens": 2383
+      },
+      "recommendation": {
+        "summary": "The customer asks for a refund of $89.00 because the glass carafe arrived cracked and leaks, and says they sent two photos. Merchant notes confirm two photos showing a crack and a crushed box corner, and carrier tracking shows delivery the day before the request, but the customer describes a glass carafe while the order record describes a stoneware set.",
+        "extractedFacts": [
+          {
+            "fact": "Customer reports the glass carafe of their pour-over set arrived with a long crack down the side and leaks when water is poured in.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Customer states they sent two photos of the crack and the box.",
+            "source": "customer_message",
+            "confidence": "low"
+          },
+          {
+            "fact": "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "Carrier tracking confirms delivery the day before the request.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "The order is described as a stoneware pour-over coffee set, captured 2026-10-10.",
+            "source": "order_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "The request was received 5 days after capture, within the 30-day return window.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "$89.00 was captured, nothing has been refunded, and $89.00 remains refundable.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "No prior refund requests appear in refund history.",
+            "source": "refund_history",
+            "confidence": "high"
+          },
+          {
+            "fact": "The requested amount of $89.00 is under the $500 manual-review threshold.",
+            "source": "policy",
+            "confidence": "high"
+          }
+        ],
+        "proposedAction": "manual_review",
+        "proposedAmountMinor": null,
+        "currencyCode": null,
+        "policyCitations": [
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "FR-1",
+            "supportingQuote": "If an item arrives damaged or defective, the customer is eligible for a full refund of the item price once they provide at least one photo showing the damage.",
+            "explanation": "The claimed damage is a cracked item on arrival, and merchant notes say a photo of the crack was received. This clause would support a full refund of the item price, which is $89.00, but the carafe-versus-stoneware-set discrepancy must be resolved first."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "MR-1",
+            "supportingQuote": "any request where the customer's statements conflict with order or tracking records",
+            "explanation": "The customer describes a glass carafe, but the order record describes a stoneware pour-over set without stating the carafe's material. This may be a real conflict, so a merchant must review the request before any refund."
+          }
+        ],
+        "evidenceFor": [
+          "Merchant notes confirm a photo showing a visible crack on the carafe.",
+          "Merchant notes confirm a photo showing a crushed corner on the shipping box.",
+          "Carrier tracking confirms delivery the day before the request."
+        ],
+        "evidenceMissing": [],
+        "contradictions": [
+          "The customer describes a glass carafe, but the order record describes a stoneware pour-over coffee set. The record does not state the carafe's material, so this may be consistent, but it should be confirmed."
+        ],
+        "riskFlags": [
+          {
+            "code": "contradictory_claims",
+            "detail": "The customer's glass carafe description does not clearly match the stoneware set in the order record."
+          }
+        ],
+        "explanation": "The damage claim looks supported: merchant notes confirm the photos and delivery, the request is within the 30-day window, and the item is under $100 so no return is needed. Under FR-1 this would support a full refund of $89.00. However, MR-1 requires manual review when the customer's statements conflict with order records, and the glass-versus-stoneware difference is unresolved. Because the rules say to choose manual review when unsure, no amount is proposed until a merchant confirms the item matches the order.",
+        "suggestedCustomerReply": "Hello, thank you for your message and for sending photos of the cracked carafe and the damaged box. We have received your request and our team is reviewing it. Could you please confirm the material and the exact item name printed on your product or packaging, so we can match it to your order? We will get back to you as soon as the review is complete. Thank you for your patience."
+      }
+    },
+    {
+      "fixture": "eligible-full-refund",
+      "run": 3,
+      "ok": true,
+      "action": "manual_review",
+      "outcome": "requires_review",
+      "checks": {
+        "action": false,
+        "outcome": false,
+        "citationsValid": true,
+        "escalation": true,
+        "cites": true
+      },
+      "invalidCitations": 0,
+      "totalCitations": 3,
+      "approvableMinor": null,
+      "latencyMs": 11440,
+      "usage": {
+        "inputTokens": 4851,
+        "outputTokens": 2769
+      },
+      "recommendation": {
+        "summary": "The customer asks for an $89.00 refund because the glass carafe in their pour-over set arrived cracked and leaks. The merchant notes say two photos showing a crack and a crushed box corner are in the help desk, and carrier tracking confirms delivery the day before the request. The customer describes a glass carafe, but the order is recorded as a stoneware pour-over coffee set, so the item description needs confirming before a decision.",
+        "extractedFacts": [
+          {
+            "fact": "Customer reports the glass carafe arrived with a long crack down the side and leaks when water is poured in.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Customer states they sent two photos of the crack and the box.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Customer requests a refund of $89.00.",
+            "source": "customer_message",
+            "confidence": "high"
+          },
+          {
+            "fact": "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "Carrier tracking confirms delivery the day before the request.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "The order description is Stoneware pour-over coffee set, not a glass carafe.",
+            "source": "order_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "The order was captured on 2026-10-10 and the request was received on 2026-10-16, 5 days later.",
+            "source": "order_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "Captured amount is $89.00 and remaining refundable amount is $89.00 (8900 minor units), with no prior refunds or unresolved refunds.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "Refund history is empty.",
+            "source": "refund_history",
+            "confidence": "high"
+          },
+          {
+            "fact": "Damaged-on-arrival refunds require at least one photo showing the damage, and damaged items under $100 do not need to be returned.",
+            "source": "policy",
+            "confidence": "high"
+          },
+          {
+            "fact": "Requests must be submitted within 30 days of the order capture date.",
+            "source": "policy",
+            "confidence": "high"
+          }
+        ],
+        "proposedAction": "manual_review",
+        "proposedAmountMinor": null,
+        "currencyCode": null,
+        "policyCitations": [
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "MR-1",
+            "supportingQuote": "any request where the customer's statements conflict with order or tracking records",
+            "explanation": "The customer describes a glass carafe, while the order record lists a stoneware pour-over coffee set. This is a conflict between the customer's statement and the order record, so a merchant must review the request."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "FR-1",
+            "supportingQuote": "the customer is eligible for a full refund of the item price once they provide at least one photo showing the damage",
+            "explanation": "If the damage claim is confirmed for the item in the order, FR-1 would support a full refund. The merchant notes say photos were received, and the amount is under $100, so no return is needed."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "RW-1",
+            "supportingQuote": "Refund requests must be submitted within 30 days of the order's capture date.",
+            "explanation": "The request was received 5 days after capture, which is within the return window."
+          }
+        ],
+        "evidenceFor": [
+          "Merchant notes confirm two customer photos in the help desk showing a visible crack on the carafe and a crushed corner on the shipping box.",
+          "Carrier tracking confirms delivery the day before the request.",
+          "The request was made 5 days after capture, within the 30-day window.",
+          "No prior refunds exist on this order, so the full $89.00 is refundable."
+        ],
+        "evidenceMissing": [],
+        "contradictions": [
+          "The customer describes a glass carafe with a crack and leaks, but the order record describes a stoneware pour-over coffee set.",
+          "The customer's message says the carafe leaks, but the merchant notes do not mention leaking."
+        ],
+        "riskFlags": [
+          {
+            "code": "contradictory_claims",
+            "detail": "The customer's item description (glass carafe) does not match the order description (stoneware pour-over coffee set)."
+          },
+          {
+            "code": "unverified_evidence",
+            "detail": "The photos are described only in merchant notes. The photo files themselves are not in the case data, and the leak claim is not confirmed by the merchant notes."
+          }
+        ],
+        "explanation": "The damage claim appears supported: merchant notes confirm the photos and delivery, and FR-1 would allow a full refund of the item price for a photographed damage claim under $100. However, MR-1 requires manual review when the customer's statements conflict with order records, and the customer's glass carafe description does not match the stoneware set on the order. Because this conflict is unresolved and the policy requires review, the request should go to a merchant before any refund decision. If the merchant confirms the damaged item is part of this order, FR-1 would support a full refund of $89.00.",
+        "suggestedCustomerReply": "Thank you for reaching out about your pour-over set and for sending photos. We are looking into your request. Could you confirm which item in your set has the crack? Your message mentions a glass carafe, and we want to make sure we have the correct item on your order. We will get back to you as soon as we can."
+      }
+    }
+  ]
+}

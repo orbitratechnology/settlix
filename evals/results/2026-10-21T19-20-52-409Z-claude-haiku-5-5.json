@@ -1,0 +1,120 @@
+{
+  "summary": {
+    "model": "claude-haiku-5-5",
+    "promptVersion": "investigation-v1",
+    "runAt": "2026-10-21T19:20:52.409Z",
+    "fixtures": 1,
+    "runs": 1,
+    "schemaValid": "1/1 (100%)",
+    "correctAction": "0/1 (0%)",
+    "correctOutcome": "0/1 (0%)",
+    "citationValidity": "2/2 (100%)",
+    "unsupportedCitationRate": "0/2 (0%)",
+    "expectedCitation": "1/1 (100%)",
+    "missingEvidenceDetection": "n/a",
+    "contradictionDetection": "n/a",
+    "injectionFlagged": "n/a",
+    "amountBound": "n/a",
+    "escalation": "1/1 (100%)"
+  },
+  "scores": [
+    {
+      "fixture": "eligible-full-refund",
+      "run": 1,
+      "ok": true,
+      "action": "manual_review",
+      "outcome": "requires_review",
+      "checks": {
+        "action": false,
+        "outcome": false,
+        "citationsValid": true,
+        "escalation": true,
+        "cites": true
+      },
+      "invalidCitations": 0,
+      "totalCitations": 2,
+      "approvableMinor": null,
+      "latencyMs": 14946,
+      "usage": {
+        "inputTokens": 4849,
+        "outputTokens": 2549
+      },
+      "recommendation": {
+        "summary": "The customer asks for an $89.00 refund because the glass carafe arrived cracked and leaks, and says they sent two photos. Merchant notes confirm two photos showing a crack and a crushed box corner, but tracking shows delivery 4 days ago while the customer says the set arrived today.",
+        "extractedFacts": [
+          {
+            "fact": "Customer says the pour-over set arrived today with a long crack down the glass carafe, and that it leaks when water is poured in.",
+            "source": "customer_message",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Customer requests a refund of $89.00.",
+            "source": "customer_message",
+            "confidence": "high"
+          },
+          {
+            "fact": "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box.",
+            "source": "merchant_notes",
+            "confidence": "high"
+          },
+          {
+            "fact": "Tracking shows delivery 4 days ago.",
+            "source": "merchant_notes",
+            "confidence": "medium"
+          },
+          {
+            "fact": "Order SBX-EVAL1 (stoneware pour-over coffee set) was captured on 2026-10-10 for $89.00 with payment state CAPTURED.",
+            "source": "order_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "The request was received 5 days after capture, within the 30-day return window.",
+            "source": "payment_record",
+            "confidence": "high"
+          },
+          {
+            "fact": "No prior refunds exist and the full $89.00 is remaining refundable.",
+            "source": "refund_history",
+            "confidence": "high"
+          }
+        ],
+        "proposedAction": "manual_review",
+        "proposedAmountMinor": null,
+        "currencyCode": null,
+        "policyCitations": [
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "MR-1",
+            "supportingQuote": "any request where the customer's statements conflict with order or tracking records",
+            "explanation": "The customer says the set arrived today, but the merchant notes say tracking shows delivery 4 days ago. This conflict requires a merchant review before any refund decision."
+          },
+          {
+            "policyId": "00000000-0000-4000-8000-0000000000a2",
+            "policyVersion": 2,
+            "clauseKey": "FR-1",
+            "supportingQuote": "the customer is eligible for a full refund of the item price once they provide at least one photo showing the damage",
+            "explanation": "If the delivery conflict is resolved, the damage claim and the two photos noted by support could support a full refund of the $89.00 item price, since the item is under $100 and does not need to be returned."
+          }
+        ],
+        "evidenceFor": [
+          "Merchant notes confirm two customer photos showing a visible crack on the carafe and a crushed corner on the shipping box.",
+          "The request was made 5 days after capture, within the 30-day return window.",
+          "The order was captured for $89.00 and no refunds have been made."
+        ],
+        "evidenceMissing": [],
+        "contradictions": [
+          "The customer says the set arrived today, but the merchant notes say tracking shows delivery 4 days ago."
+        ],
+        "riskFlags": [
+          {
+            "code": "contradictory_claims",
+            "detail": "The customer's delivery statement conflicts with the tracking record noted by the merchant, which triggers manual review under MR-1."
+          }
+        ],
+        "explanation": "The claimed damage would qualify for a full refund under FR-1 because the customer has provided photos and the item is under $100. However, MR-1 requires a merchant review when the customer's statements conflict with tracking records. The customer says the set arrived today, while tracking shows delivery 4 days ago. The merchant should confirm the delivery date before deciding. No amount is proposed until that review is complete.",
+        "suggestedCustomerReply": "Thank you for sending photos of the cracked carafe and the damaged box. We're looking into your request and will get back to you soon. Could you please confirm when you received the set so we have the full picture?"
+      }
+    }
+  ]
+}

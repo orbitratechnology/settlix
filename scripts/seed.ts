@@ -181,7 +181,7 @@ const scenarios: DemoScenario[] = [
     scenario: "Eligible for a full refund",
     order: {
       external_order_reference: "HP-10421",
-      description: "Stoneware pour-over coffee set",
+      description: "Pour-over coffee set: stoneware dripper and glass carafe",
       original_amount_minor: 8900,
       currency_code: "USD",
       captured_at: daysAgo(6),
@@ -192,11 +192,11 @@ const scenarios: DemoScenario[] = [
       request_category: "damaged_item",
       claimed_issue: "Carafe arrived cracked and leaks",
       customer_message:
-        "Hi, my pour-over set arrived today and the glass carafe has a long crack down the side. It leaks as soon as I pour water in. I've sent two photos of the crack and the box. Could I get a refund, please?",
+        "Hi, my pour-over set arrived and the glass carafe has a long crack down the side. It leaks as soon as I pour water in. I've sent two photos of the crack and the box. Could I get a refund, please?",
       requested_amount_minor: 8900,
       currency_code: "USD",
       supporting_details:
-        "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box. Tracking shows delivery 4 days ago.",
+        "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box. Carrier tracking confirms delivery the day before the request.",
       created_at: daysAgo(3),
     },
   },

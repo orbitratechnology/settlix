@@ -162,13 +162,13 @@ export const evalFixtures: EvalFixture[] = [
     context: context({
       n: 1,
       message:
-        "Hi, my pour-over set arrived today and the glass carafe has a long crack down the side. It leaks as soon as I pour water in. I've sent two photos of the crack and the box. Could I get a refund, please?",
+        "Hi, my pour-over set arrived and the glass carafe has a long crack down the side. It leaks as soon as I pour water in. I've sent two photos of the crack and the box. Could I get a refund, please?",
       claimedIssue: "Carafe arrived cracked and leaks",
       category: "damaged_item",
       requestedMinor: 8900,
       notes:
-        "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box. Tracking shows delivery 4 days ago.",
-      description: "Stoneware pour-over coffee set",
+        "Support confirmed two customer photos in the help desk: a visible crack on the carafe and a crushed corner on the shipping box. Carrier tracking confirms delivery the day before the request.",
+      description: "Pour-over coffee set: stoneware dripper and glass carafe",
       amountMinor: 8900,
       capturedAt: "2026-10-10T15:00:00.000Z",
       requestAt: "2026-10-16T09:30:00.000Z",
