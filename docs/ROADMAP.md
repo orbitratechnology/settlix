@@ -65,7 +65,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Follow-ups: optional Auth hardening in the Supabase dashboard (see summary); a demo reset that
   refreshes seed dates before judging (Phase 7).
 
-## Phase 3 — PayPal Sandbox proof 🟡 (built; real capture/refund blocked by the sandbox merchant account)
+## Phase 3 — PayPal Sandbox proof ✅ (awaiting approval)
 
 - Server-only adapter `src/lib/paypal/`: sandbox-only base URL guard, OAuth client-credentials token
   cache (dedupes concurrent refreshes, replays once on 401 with the same `PayPal-Request-Id`), create /
@@ -86,15 +86,21 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   checks the PayPal connection.
 - `bun run paypal:smoke create|finish <id>`: adapter proof against the real sandbox (capture,
   partial refund, idempotent replay, remainder refund, over-refund rejected, read back). Writes nothing.
-- Verified: `bun run check` (35 tests), build, OAuth connection, in-app order creation (201) and the
-  PayPal popup at 390 / 820 / 1440 px, cancel notice, Check status.
-- **Blocked:** buyer approval fails with PayPal `PAYEE_ACCOUNT_LOCKED_OR_CLOSED` for the sandbox
-  business account behind the current REST app, so no capture or refund can happen yet. Fix: a new
-  US sandbox Business + Personal account pair and a REST app on that business account, then update
-  `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_SANDBOX_BUYER_EMAIL`,
-  `PAYPAL_SANDBOX_BUYER_PASSWORD`.
-- **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against it
-  succeeds (cross-checked with the PayPal MCP `get_refund`).
+- Verified: `bun run check` (35 tests), build, browser at 390 / 820 / 1440 px.
+- Real sandbox proof (new US sandbox Business + Personal accounts, REST app `APP-5MK83820S5842033S`):
+  - `paypal:smoke`: order `25P66568A8273623P` approved by the buyer → capture `4EU49693BB917721E`
+    COMPLETED ($1.00) → partial refund `56340726K7401640B` COMPLETED ($0.40, 201) → replay with the
+    same `PayPal-Request-Id` returned the same refund (200) → remainder refund `16078868D2241543K`
+    COMPLETED ($0.60) → over-refund rejected (`CAPTURE_FULLY_REFUNDED`) → capture REFUNDED.
+    Cross-checked with the PayPal MCP (`get_order`, `get_refund` ×2).
+  - In-app: checkout `SBX-FB92B37F` ($89.00) → PayPal order `0SH46036KR300010D` → capture
+    `4S172867UT322280T` stored as CAPTURED with audit events → case **STX-1023** opened from the
+    payment (requested $25.00). The capture is left unrefunded for the Phase 5 approval flow.
+  - Leftover row `SBX-5C6B2FC7` (order `0AH95725BF756782H`) is from the old, locked sandbox
+    account and was never paid.
+- Note: environment variable changes reach only new cloud sessions.
+- **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against a
+  real capture succeeds (cross-checked with the PayPal MCP `get_refund`). ✅
 
 ## Phase 4 — Policies, AI investigation & eligibility engine ⬜
 
