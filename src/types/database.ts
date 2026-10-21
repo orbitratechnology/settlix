@@ -471,8 +471,10 @@ export type Database = {
           effective_until: string | null
           id: string
           is_active: boolean
+          manual_review_above_minor: number | null
           merchant_id: string
           name: string
+          published_at: string | null
           return_window_days: number | null
           updated_at: string
           version: number
@@ -486,8 +488,10 @@ export type Database = {
           effective_until?: string | null
           id?: string
           is_active?: boolean
+          manual_review_above_minor?: number | null
           merchant_id: string
           name: string
+          published_at?: string | null
           return_window_days?: number | null
           updated_at?: string
           version: number
@@ -501,8 +505,10 @@ export type Database = {
           effective_until?: string | null
           id?: string
           is_active?: boolean
+          manual_review_above_minor?: number | null
           merchant_id?: string
           name?: string
+          published_at?: string | null
           return_window_days?: number | null
           updated_at?: string
           version?: number
@@ -522,7 +528,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      activate_policy_version: {
+        Args: { p_merchant_id: string; p_policy_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       actor_type: "user" | "system" | "ai"

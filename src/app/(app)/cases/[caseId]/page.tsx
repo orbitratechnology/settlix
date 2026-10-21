@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { ScaleIcon, SparklesIcon } from "lucide-react"
+import { SparklesIcon } from "lucide-react"
 
 import {
   PaymentFactsCard,
@@ -8,16 +8,11 @@ import {
   RequestFactsCard,
 } from "@/components/cases/case-facts"
 import { CaseTimeline } from "@/components/cases/case-timeline"
+import { EligibilityCard } from "@/components/investigations/eligibility-card"
+import { InvestigationRunner } from "@/components/investigations/investigation-runner"
+import { RecommendationView } from "@/components/investigations/recommendation-view"
 import { PageContainer, PageHeader } from "@/components/page-header"
 import { CaseStatusBadge, OriginBadge } from "@/components/status-badges"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Empty,
   EmptyDescription,
@@ -26,7 +21,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { getCaseDetail } from "@/lib/data/cases"
+import { getInvestigationView } from "@/lib/data/investigations"
 import { caseStatusMeta } from "@/lib/domain/labels"
+import { integrationConfig } from "@/lib/env/server"
+import { investigationUnavailableReason } from "@/lib/investigations/service"
+import { can, requireMember } from "@/lib/security/auth"
 
 export const metadata: Metadata = {
   title: "Case",
@@ -40,6 +39,17 @@ export default async function CasePage({
   // Unknown IDs and other merchants' cases look identical: not found.
   if (!detail) notFound()
 
+  const [member, view] = await Promise.all([
+    requireMember(),
+    getInvestigationView(detail),
+  ])
+
+  const blockedReason = !can.investigate(member.role)
+    ? "Your role can't run investigations."
+    : !integrationConfig().anthropic
+      ? "Claude isn't configured on the server yet, so investigations can't run."
+      : investigationUnavailableReason(detail)
+
   return (
     <PageContainer>
       <PageHeader
@@ -51,17 +61,6 @@ export default async function CasePage({
           </span>
         }
         description={caseStatusMeta[detail.status].description}
-        actions={
-          <>
-            <Button variant="outline" disabled>
-              Request evidence
-            </Button>
-            <Button disabled>
-              <SparklesIcon data-icon="inline-start" />
-              Start investigation
-            </Button>
-          </>
-        }
       />
 
       <div className="grid gap-4 @2xl/main:grid-cols-2 @5xl/main:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -70,15 +69,20 @@ export default async function CasePage({
           <PaymentFactsCard detail={detail} />
         </div>
 
-        <Card className="@2xl/main:order-last @2xl/main:col-span-2 @5xl/main:order-none @5xl/main:col-span-1">
-          <CardHeader>
-            <CardTitle>AI investigation</CardTitle>
-            <CardDescription>
-              Summary, cited policy clauses, evidence, and the proposed
-              resolution.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <InvestigationRunner
+          caseId={detail.id}
+          hasInvestigation={view.latest !== null}
+          blockedReason={blockedReason}
+          className="@container/card min-w-0 @2xl/main:order-last @2xl/main:col-span-2 @5xl/main:order-none @5xl/main:col-span-1"
+        >
+          {view.latest ? (
+            <RecommendationView
+              record={view.latest}
+              stale={view.stale}
+              earlier={view.earlier}
+              caseCurrency={detail.currency_code}
+            />
+          ) : (
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -86,37 +90,24 @@ export default async function CasePage({
                 </EmptyMedia>
                 <EmptyTitle>No investigation yet</EmptyTitle>
                 <EmptyDescription>
-                  Claude investigations are added in the next build phase. No
-                  recommendation has been generated for this case.
+                  Claude reads the request, order, refund history, and active
+                  policy, then recommends an action with cited clauses. Nothing
+                  is refunded automatically.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          </CardContent>
-        </Card>
+          )}
+          {view.unreadable > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {view.unreadable} earlier investigation
+              {view.unreadable === 1 ? " uses" : "s use"} an older format and
+              {view.unreadable === 1 ? " is" : " are"} not shown.
+            </p>
+          ) : null}
+        </InvestigationRunner>
 
         <div className="flex min-w-0 flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Checks &amp; action</CardTitle>
-              <CardDescription>
-                Deterministic eligibility, refundable balance, and approval.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Empty className="border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <ScaleIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>No checks run</EmptyTitle>
-                  <EmptyDescription>
-                    Eligibility checks run after an investigation. No refund
-                    action is available.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </CardContent>
-          </Card>
+          <EligibilityCard result={view.current} />
           <RefundHistoryCard detail={detail} />
         </div>
       </div>

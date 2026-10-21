@@ -37,6 +37,7 @@ export const segmentLabels: Record<string, string> = {
 /** Labels for the record page under a section, e.g. /cases/<id> → "Case". */
 export const detailLabels: Record<string, string> = {
   cases: "Case",
+  policies: "Policy version",
   receipts: "Receipt",
 }
 

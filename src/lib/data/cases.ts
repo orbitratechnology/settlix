@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/server"
 
 const caseIdSchema = z.uuid()
 
+/** Most recent investigations shown on a case. */
+const INVESTIGATION_HISTORY = 6
+
 /**
  * Inbox rows for the signed-in member's merchant. RLS already limits rows to the
  * member's merchants; the explicit merchant filter is a second, server-side check.
@@ -51,6 +54,11 @@ export async function getCaseDetail(caseId: string) {
        ),
        audit_events:audit_events!audit_events_merchant_id_case_id_fkey(
          id, actor_type, event_type, event_summary, origin, created_at
+       ),
+       investigations:investigations!investigations_merchant_id_case_id_fkey(
+         id, model_provider, model_id, prompt_version, input_context_hash,
+         recommendation_json, eligibility_result, policy_version_snapshot,
+         created_at
        )`,
     )
     .eq("merchant_id", member.workspace.id)
@@ -60,6 +68,11 @@ export async function getCaseDetail(caseId: string) {
       ascending: false,
     })
     .order("created_at", { referencedTable: "audit_events", ascending: true })
+    .order("created_at", {
+      referencedTable: "investigations",
+      ascending: false,
+    })
+    .limit(INVESTIGATION_HISTORY, { referencedTable: "investigations" })
     .maybeSingle()
 
   if (error) throw new Error("Could not load case", { cause: error })

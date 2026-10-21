@@ -20,7 +20,9 @@ Hackathon 2026.
   Supabase project (skipped without env) and needs the seed data
 - `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`)
 - `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
-  with the sandbox buyer in between). Scripts that import `server-only` modules run with
+  with the sandbox buyer in between).
+- `bun run ai:eval [--runs N] [--only <fixture>]` — live Claude eval over the PRD §10.8 fixtures
+  (`src/lib/ai/evals/`); writes `evals/results/*.json`, never the database. Needs the Anthropic env. Scripts that import `server-only` modules run with
   `bun --conditions=react-server`; tests mock `server-only` via `bunfig.toml` → `tests/setup.ts`.
 
 ## Database workflow
@@ -36,7 +38,9 @@ Hackathon 2026.
   member's `workspace.id` (never a merchant ID from the request). Grants are explicit in migrations.
 - DB-enforced invariants: composite `(merchant_id, id)` FKs, no merchant moves, case/refund status
   transition guards, immutable refund intent, one unresolved refund attempt per case, append-only
-  `audit_events`/`investigations`, seed rows never carry PayPal IDs.
+  `audit_events`/`investigations`, seed rows never carry PayPal IDs, published policy versions and
+  their clauses are immutable (new versions start as drafts; only published versions can be
+  active; `activate_policy_version()` swaps the active version atomically).
 
 ## Code layout
 
@@ -52,6 +56,14 @@ Hackathon 2026.
   role capabilities `can.*`. `src/lib/data/` — merchant-scoped reads used by pages.
 - `src/lib/domain/labels.ts` — status/category labels and badge tones; `src/lib/money/` — integer
   minor-unit helpers (tested); `src/types/database.ts` — generated types.
+- `src/lib/ai/` — Claude via AI SDK: `client.ts` (model from env, pinned base URL), `schemas.ts`
+  (recommendation Zod schema), `prompts.ts` (`PROMPT_VERSION`; bump it on any prompt change),
+  `investigate.ts` (structured call + failure mapping), `evals/` (§10.8 fixtures + scorer).
+- `src/lib/policy/` — `eligibility.ts` (deterministic FR-08 engine; only ever stricter than the AI),
+  `citations.ts` (verbatim quote validation), `retrieval.ts` (active published policies),
+  `warnings.ts`. `src/lib/investigations/` — `context.ts` (evidence + stable hash), `load.ts`,
+  `service.ts` (claim → Claude → validate → persist → audit; restores the case on failure),
+  `records.ts` (parse stored rows). The case page re-runs the engine on current records.
 - Client hooks that read the URL (`usePathname`) sit inside `<Suspense>` so dynamic routes still prerender a shell.
 - Request-time data (session, merchant data) is read inside `<Suspense>` boundaries; `getViewer()`
   calls `connection()` so auth is never prerendered or runtime-prefetched.
@@ -128,3 +140,7 @@ Hackathon 2026.
 
 See `.env.example`. Locally they live in `.env.local` (gitignored). In cloud sessions, add secrets as
 environment variables in the cloud environment settings; a new session picks them up.
+Cloud sessions don't pass `ANTHROPIC_API_KEY` through to the agent (the name appears reserved for
+Claude Code itself), so store the key as `SETTLIX_ANTHROPIC_API_KEY` there and prefix commands
+that need it: `ANTHROPIC_API_KEY="$SETTLIX_ANTHROPIC_API_KEY" bun run dev` (or `ai:eval`). The app
+itself only reads `ANTHROPIC_API_KEY` (set it normally on Vercel).

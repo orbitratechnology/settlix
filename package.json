@@ -13,13 +13,16 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:seed": "bun run scripts/seed.ts",
-    "paypal:smoke": "bun --conditions=react-server scripts/paypal-sandbox-smoke.ts"
+    "paypal:smoke": "bun --conditions=react-server scripts/paypal-sandbox-smoke.ts",
+    "ai:eval": "bun --conditions=react-server scripts/ai-eval.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.85",
     "@base-ui/react": "^1.9.0",
     "@paypal/react-paypal-js": "10.6.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
+    "ai": "7.0.148",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.61.0",

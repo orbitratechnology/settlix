@@ -18,12 +18,22 @@ export function serverEnv(): ServerEnv {
   return cached
 }
 
+/**
+ * Claude credentials and model ID (PRD §10.1: the model is server config, never
+ * hardcoded). Null when either is missing, so AI features can report it.
+ */
+export function anthropicConfig(): { apiKey: string; model: string } | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
+  const model = process.env.ANTHROPIC_MODEL?.trim()
+  return apiKey && model ? { apiKey, model } : null
+}
+
 /** Which optional integrations are configured, without exposing any value. */
 export function integrationConfig() {
   return {
     paypal: Boolean(
       process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET,
     ),
-    anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+    anthropic: anthropicConfig() !== null,
   }
 }

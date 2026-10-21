@@ -34,6 +34,19 @@ export function RefundStatusBadge({ status }: { status: RefundAttemptStatus }) {
   return <Badge variant={meta.tone}>{meta.label}</Badge>
 }
 
+/** Draft versions are editable; published ones are immutable and may be active. */
+export function PolicyStatusBadge({
+  isActive,
+  publishedAt,
+}: {
+  isActive: boolean
+  publishedAt: string | null
+}) {
+  if (isActive) return <Badge variant="success">Active</Badge>
+  if (!publishedAt) return <Badge variant="warning">Draft</Badge>
+  return <Badge variant="secondary">Inactive</Badge>
+}
+
 /** Marks seeded demo records so they are never mistaken for live PayPal data. */
 export function OriginBadge({ origin }: { origin: Enums<"data_origin"> }) {
   if (origin !== "seed") return null

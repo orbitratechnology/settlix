@@ -1,3 +1,9 @@
+import type {
+  factSources,
+  ProposedAction,
+  RiskFlagCode,
+} from "@/lib/ai/schemas"
+import type { EligibilityOutcome } from "@/lib/policy/eligibility"
 import type { Enums } from "@/types/database"
 
 export type CaseStatus = Enums<"case_status">
@@ -145,4 +151,66 @@ export const clauseTypeLabels: Record<ClauseType, string> = {
   evidence_requirement: "Evidence requirement",
   manual_review: "Manual review",
   general: "General",
+}
+
+export const eligibilityOutcomeMeta: Record<
+  EligibilityOutcome,
+  { label: string; tone: BadgeTone; description: string }
+> = {
+  eligible_for_approval: {
+    label: "Eligible for approval",
+    tone: "success",
+    description: "Every check passed. A merchant can approve the refund.",
+  },
+  requires_evidence: {
+    label: "Needs evidence",
+    tone: "warning",
+    description: "Required evidence is missing.",
+  },
+  requires_review: {
+    label: "Needs review",
+    tone: "warning",
+    description: "A merchant must review the case before any refund.",
+  },
+  not_eligible: {
+    label: "Not eligible",
+    tone: "outline",
+    description: "The policy doesn't allow a refund for this request.",
+  },
+  blocked_by_payment_state: {
+    label: "Blocked by payment",
+    tone: "destructive",
+    description: "The payment records don't allow a refund.",
+  },
+}
+
+export const proposedActionMeta: Record<
+  ProposedAction,
+  { label: string; tone: BadgeTone }
+> = {
+  full_refund: { label: "Full refund", tone: "info" },
+  partial_refund: { label: "Partial refund", tone: "info" },
+  request_evidence: { label: "Request evidence", tone: "warning" },
+  manual_review: { label: "Manual review", tone: "warning" },
+  not_eligible: { label: "Not eligible", tone: "outline" },
+}
+
+export const factSourceLabels: Record<(typeof factSources)[number], string> = {
+  customer_message: "Customer message",
+  merchant_notes: "Merchant notes",
+  order_record: "Order record",
+  payment_record: "Payment record",
+  refund_history: "Refund history",
+  policy: "Policy",
+}
+
+export const riskFlagLabels: Record<RiskFlagCode, string> = {
+  prompt_injection: "Prompt injection",
+  contradictory_claims: "Contradictory claims",
+  possible_fraud: "Possible fraud",
+  policy_conflict: "Policy conflict",
+  repeat_requester: "Repeat requester",
+  high_value: "High value",
+  unverified_evidence: "Unverified evidence",
+  other: "Other",
 }

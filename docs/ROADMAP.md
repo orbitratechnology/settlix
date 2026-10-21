@@ -14,7 +14,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Supabase project `settlix` created (`hdmaouuzkmwyobepooeg`, us-east-1, free tier).
 - `CLAUDE.md`, `.env.example`, PRD copied to `docs/PRD.md`.
 - Credentials added as cloud environment variables and verified (Supabase URL/publishable/secret,
-  PayPal sandbox client ID/secret). Still to add: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (Phase 4).
+  PayPal sandbox client ID/secret). `ANTHROPIC_MODEL` added (`claude-haiku-5-5`); `ANTHROPIC_API_KEY` is not visible in cloud sessions (see Phase 4).
 - Deferred: PayPal **Transaction Search** still returns 403 for the sandbox app (permission not yet
   in issued tokens). Not needed by Settlix; retry later for MCP `list_transactions`.
 
@@ -65,7 +65,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Follow-ups: optional Auth hardening in the Supabase dashboard (see summary); a demo reset that
   refreshes seed dates before judging (Phase 7).
 
-## Phase 3 — PayPal Sandbox proof ✅ (awaiting approval)
+## Phase 3 — PayPal Sandbox proof ✅
 
 - Server-only adapter `src/lib/paypal/`: sandbox-only base URL guard, OAuth client-credentials token
   cache (dedupes concurrent refreshes, replays once on 401 with the same `PayPal-Request-Id`), create /
@@ -102,17 +102,59 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - **Exit:** a real sandbox capture is stored with its capture ID and a server-side refund against a
   real capture succeeds (cross-checked with the PayPal MCP `get_refund`). ✅
 
-## Phase 4 — Policies, AI investigation & eligibility engine ⬜
+## Phase 4 — Policies, AI investigation & eligibility engine 🟡 (built; live Claude run pending)
 
-Needs: Anthropic API key (+ model choice).
-
-- Policies screen: list, view, create/edit version with clauses, activate.
-- Merchant-scoped policy retrieval; Claude via AI SDK structured output (Zod); prompt v1 with
-  prompt-injection defenses; citation validation against stored clauses; investigation persisted
-  with model, prompt version, policy snapshot.
-- Deterministic eligibility engine with reason codes (PRD FR-08) + unit tests.
-- Eval fixtures for the PRD §10.8 scenarios.
-- **Exit:** investigations on seeded cases produce valid, cited, stored recommendations.
+- Migration `20261021182739_policy_publishing.sql`: policy versions are drafts until published;
+  published versions and their clauses are immutable (DB guards), only published versions can be
+  active, `activate_policy_version()` publishes/activates atomically (deactivates the other version of
+  the same policy), structured `manual_review_above_minor` threshold. Seed inserts drafts, adds
+  clauses, then publishes; clause text shared with the eval fixtures (`src/lib/demo-policies.ts`).
+- Policies: list grouped by policy with version status and active-policy conflict warnings;
+  version page with clause anchors (`#clause-KEY`, opened from citations), read-only notice for
+  published versions, gap warnings, version switcher; draft editor (details, add/edit/delete
+  clauses, duplicate-ID errors), publish and activate, activate an older version, deactivate, new
+  version (copies clauses), delete draft. Server actions check `can.managePolicies`, scope by
+  workspace, and write audit events.
+- AI investigation (`src/lib/ai/`, `src/lib/investigations/`): AI SDK 7 + `@ai-sdk/anthropic`,
+  model from `ANTHROPIC_MODEL`, base URL pinned. `generateText` + `Output.object` with a Zod schema
+  (PRD §10.3 plus structured risk flags), no tools. Prompt `investigation-v1`: case data as escaped
+  JSON inside `<case_data>`, treated as untrusted; deterministic money facts supplied; no capture or
+  demo flags (the engine owns those). 75 s budget, 60 k-char context cap, failures mapped to
+  `timeout` / `rate_limited` / `provider_error` / `invalid_output` / `refused` /
+  `context_too_large` / `not_configured`.
+- Citation validation: each citation must name a retrieved policy version and clause and quote it
+  verbatim (whitespace/quote/case-normalized, ellipsis fragments in order, minimum length).
+- Deterministic eligibility engine (`src/lib/policy/eligibility.ts`, FR-08): 17 checks with reason
+  codes (case lock, capture mapping, payment state, currency, refundable balance incl. unresolved
+  attempts, requested amount, policy, return window, review threshold, AI action, citations,
+  evidence, contradictions, risk flags, server-computed refund amount, freshness). It can only make
+  the AI's outcome stricter; demo orders can be investigated but never approved.
+- `POST /api/cases/[caseId]/investigate`: same-origin + membership, claims the case (`INVESTIGATING`,
+  stale runs retaken after 3 min), per-workspace limit (20 per 15 min), stores the investigation
+  (model, prompt version, policy snapshot, context hash, validated recommendation, eligibility),
+  moves the case to the outcome's status, audit events (`investigation.started/completed/failed`).
+  Any failure restores the case and creates no refund attempt.
+- Case workspace: run/re-run with progress and safe errors; recommendation (summary, reasoning,
+  cited clauses with verified/invalid state and "Open clause", evidence for/missing,
+  contradictions, risk flags, extracted facts with source and confidence, copyable reply draft,
+  earlier runs); checks card re-evaluated against current records on every load (stale banner when
+  records changed), flagged checks first, all checks in a collapsible; approval button shown
+  disabled only for eligible cases (Phase 5).
+- Evals: 10 §10.8 fixtures with golden answers (`src/lib/ai/evals/`), unit-tested against the engine
+  and scorer; `bun run ai:eval [--runs N] [--only id]` runs the real model and writes
+  `evals/results/*.json` (schema-valid rate, action, outcome, citation validity, missing evidence,
+  contradictions, injection flag, amount bound, escalation).
+- Verified: `bun run check` (112 tests: engine, citations, context hash, prompt escaping, mock-model
+  output/failure handling, policy guards and investigation service against the real database),
+  build, advisors (no new findings), browser at 390 / 1280 / 1440 px (policy draft → clause →
+  duplicate-ID error → publish → new version → delete draft → deactivate; citation deep link; case
+  workspace with a mock-model investigation on the isolation merchant), route rejects cross-site
+  calls.
+- **Blocked:** `ANTHROPIC_API_KEY` is not visible in the cloud session (only `ANTHROPIC_MODEL` is),
+  so no real Claude investigation or live eval has run yet. Nothing AI-generated was faked; the
+  demo merchant has no investigations.
+- **Exit:** investigations on seeded cases produce valid, cited, stored recommendations — pending the
+  first live run (`bun run ai:eval`, then investigate the seeded cases in the app).
 
 ## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ⬜
 

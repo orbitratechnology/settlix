@@ -1,11 +1,17 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
-import { PlusIcon, ScrollTextIcon } from "lucide-react"
+import Link from "next/link"
+import {
+  ChevronRightIcon,
+  ScrollTextIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 
-import { FactList } from "@/components/fact-list"
+import { NewPolicyDialog } from "@/components/policies/policy-forms"
 import { PageContainer, PageHeader } from "@/components/page-header"
+import { PolicyStatusBadge } from "@/components/status-badges"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardAction,
@@ -23,8 +29,9 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { listPolicies, type PolicyWithClauses } from "@/lib/data/policies"
-import { clauseTypeLabels } from "@/lib/domain/labels"
 import { formatDate } from "@/lib/format"
+import { activePolicyWarnings } from "@/lib/policy/warnings"
+import { can, requireMember } from "@/lib/security/auth"
 
 export const metadata: Metadata = {
   title: "Policies",
@@ -35,12 +42,11 @@ export default function PoliciesPage() {
     <PageContainer>
       <PageHeader
         title="Return policies"
-        description="Versioned policies with stable clause IDs that investigations cite as evidence."
+        description="Versioned policies with stable clause IDs that investigations cite as evidence. Published versions are read-only."
         actions={
-          <Button disabled>
-            <PlusIcon data-icon="inline-start" />
-            New policy version
-          </Button>
+          <Suspense fallback={null}>
+            <NewPolicyAction />
+          </Suspense>
         }
       />
       <Suspense fallback={<PoliciesSkeleton />}>
@@ -48,6 +54,12 @@ export default function PoliciesPage() {
       </Suspense>
     </PageContainer>
   )
+}
+
+async function NewPolicyAction() {
+  const member = await requireMember()
+  if (!can.managePolicies(member.role)) return null
+  return <NewPolicyDialog today={new Date().toISOString().slice(0, 10)} />
 }
 
 async function PolicyList() {
@@ -63,83 +75,104 @@ async function PolicyList() {
           <EmptyTitle>No policies yet</EmptyTitle>
           <EmptyDescription>
             Add a return policy with its clauses so investigations can cite it.
+            Until then, every case needs a merchant review.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
   }
 
+  const groups = Map.groupBy(policies, (policy) => policy.name)
+  const warnings = activePolicyWarnings(
+    policies
+      .filter((policy) => policy.is_active)
+      .map((policy) => ({
+        name: policy.name,
+        returnWindowDays: policy.return_window_days,
+      })),
+  )
+
   return (
     <div className="flex flex-col gap-4">
-      {policies.map((policy) => (
-        <PolicyCard key={policy.id} policy={policy} />
+      {warnings.map((warning) => (
+        <Alert key={warning}>
+          <TriangleAlertIcon />
+          <AlertTitle>Check your active policies</AlertTitle>
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
+      ))}
+      {[...groups.entries()].map(([name, versions]) => (
+        <PolicyGroupCard key={name} name={name} versions={versions} />
       ))}
     </div>
   )
 }
 
-function PolicyCard({ policy }: { policy: PolicyWithClauses }) {
+function PolicyGroupCard({
+  name,
+  versions,
+}: {
+  name: string
+  versions: PolicyWithClauses[]
+}) {
+  const active = versions.find((version) => version.is_active)
+  const summary = active ?? versions[0]
+
   return (
-    <Card className="@container/card">
+    <Card>
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          {policy.name}
-          <Badge variant="outline">Version {policy.version}</Badge>
-        </CardTitle>
-        {policy.description ? (
-          <CardDescription>{policy.description}</CardDescription>
+        <CardTitle>{name}</CardTitle>
+        {summary.description ? (
+          <CardDescription>{summary.description}</CardDescription>
         ) : null}
         <CardAction>
-          {policy.is_active ? (
-            <Badge variant="success">Active</Badge>
+          {active ? (
+            <Badge variant="success">Active: v{active.version}</Badge>
           ) : (
-            <Badge variant="secondary">Inactive</Badge>
+            <Badge variant="secondary">No active version</Badge>
           )}
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <FactList
-          className="@3xl/card:grid-cols-3"
-          facts={[
-            {
-              label: "Return window",
-              value:
-                policy.return_window_days === null
-                  ? "Not set"
-                  : `${policy.return_window_days} days`,
-            },
-            {
-              label: "Effective from",
-              value: formatDate(policy.effective_from),
-            },
-            {
-              label: "Effective until",
-              value: policy.effective_until
-                ? formatDate(policy.effective_until)
-                : "No end date",
-            },
-          ]}
-        />
-        <ol className="flex flex-col divide-y rounded-lg border">
-          {policy.clauses.map((clause) => (
-            <li
-              key={clause.id}
-              id={`clause-${policy.id}-${clause.clause_key}`}
-              className="flex flex-col gap-1.5 p-3"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="font-mono">
-                  {clause.clause_key}
-                </Badge>
-                <span className="text-sm font-medium">{clause.title}</span>
-                <span className="text-xs text-muted-foreground">
-                  {clauseTypeLabels[clause.clause_type]}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">{clause.content}</p>
+      <CardContent>
+        <ul className="flex flex-col divide-y rounded-lg border">
+          {versions.map((version) => (
+            <li key={version.id}>
+              <Link
+                href={`/policies/${version.id}`}
+                className="flex items-center gap-3 p-3 text-sm transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      Version {version.version}
+                    </span>
+                    <PolicyStatusBadge
+                      isActive={version.is_active}
+                      publishedAt={version.published_at}
+                    />
+                  </span>
+                  <span className="text-muted-foreground">
+                    {version.clauses.length} clause
+                    {version.clauses.length === 1 ? "" : "s"}
+                    {" · "}
+                    {version.return_window_days === null
+                      ? "no return window"
+                      : `${version.return_window_days}-day window`}
+                    {" · effective "}
+                    {formatDate(version.effective_from)}
+                    {version.effective_until
+                      ? ` to ${formatDate(version.effective_until)}`
+                      : ""}
+                  </span>
+                </div>
+                <ChevronRightIcon
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+              </Link>
             </li>
           ))}
-        </ol>
+        </ul>
       </CardContent>
     </Card>
   )
@@ -148,8 +181,8 @@ function PolicyCard({ policy }: { policy: PolicyWithClauses }) {
 function PoliciesSkeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <Skeleton className="h-96 rounded-xl" />
-      <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-56 rounded-xl" />
+      <Skeleton className="h-40 rounded-xl" />
     </div>
   )
 }

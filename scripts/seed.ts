@@ -17,6 +17,10 @@ import { createHash } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
 
 import { DEMO_ACCOUNT } from "../src/lib/demo"
+import {
+  standardPolicyV1Clauses,
+  standardPolicyV2Clauses,
+} from "../src/lib/demo-policies"
 import type { Database, TablesInsert } from "../src/types/database"
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -98,134 +102,65 @@ async function ensureDemoUser() {
   return data.user.id
 }
 
+/**
+ * Published policy versions and their clauses are immutable, so a version is
+ * inserted as a draft, given its clauses, then published (and optionally
+ * activated). Versions that already exist are left untouched.
+ */
+async function ensurePublishedPolicy(
+  policy: Omit<TablesInsert<"return_policies">, "is_active" | "published_at">,
+  clauses: Clause[],
+  activate: boolean,
+) {
+  const { data: existing, error: lookupError } = await db
+    .from("return_policies")
+    .select("id")
+    .eq("id", policy.id!)
+    .maybeSingle()
+  if (lookupError) throw lookupError
+  if (existing) {
+    console.log(`  return_policies: ${policy.name} v${policy.version} exists`)
+    return
+  }
+
+  const { error: policyError } = await db.from("return_policies").insert(policy)
+  if (policyError) throw policyError
+  const { error: clauseError } = await db.from("policy_clauses").insert(
+    clauses.map((clause) => ({
+      ...clause,
+      merchant_id: policy.merchant_id,
+      policy_id: policy.id!,
+    })),
+  )
+  if (clauseError) throw clauseError
+
+  const { error: publishError } = activate
+    ? await db.rpc("activate_policy_version", {
+        p_merchant_id: policy.merchant_id,
+        p_policy_id: policy.id!,
+      })
+    : await db
+        .from("return_policies")
+        .update({ published_at: new Date().toISOString() })
+        .eq("id", policy.id!)
+  if (publishError) throw publishError
+  console.log(
+    `  return_policies: ${policy.name} v${policy.version} published${activate ? " and active" : ""}`,
+  )
+}
+
 const policyV1 = seedId(2, 1)
 const policyV2 = seedId(2, 2)
 const isolationPolicy = seedId(2, 9)
 
 type Clause = Omit<TablesInsert<"policy_clauses">, "merchant_id" | "policy_id">
 
-const policyV1Clauses: Clause[] = [
-  {
-    id: seedId(3, 101),
-    clause_key: "RW-1",
-    clause_type: "return_window",
-    position: 1,
-    title: "Return window",
-    content:
-      "Refund requests must be submitted within 14 days of the order's capture date.",
-  },
-  {
-    id: seedId(3, 102),
-    clause_key: "FR-1",
-    clause_type: "full_refund",
-    position: 2,
-    title: "Damaged on arrival",
-    content:
-      "Items that arrive damaged are eligible for a full refund after the item is returned.",
-  },
-]
-
-const policyV2Clauses: Clause[] = [
-  {
-    id: seedId(3, 201),
-    clause_key: "RW-1",
-    clause_type: "return_window",
-    position: 1,
-    title: "Return window",
-    content:
-      "Refund requests must be submitted within 30 days of the order's capture date. Requests received after 30 days are not eligible for a refund unless a manual-review condition applies.",
-  },
-  {
-    id: seedId(3, 202),
-    clause_key: "FR-1",
-    clause_type: "full_refund",
-    position: 2,
-    title: "Damaged or defective on arrival",
-    content:
-      "If an item arrives damaged or defective, the customer is eligible for a full refund of the item price once they provide at least one photo showing the damage. Damaged items valued under $100 do not need to be returned.",
-  },
-  {
-    id: seedId(3, 203),
-    clause_key: "FR-2",
-    clause_type: "full_refund",
-    position: 3,
-    title: "Wrong item shipped",
-    content:
-      "If we shipped the wrong item, the customer is eligible for a full refund. The customer must return the incorrect item using the prepaid label we provide.",
-  },
-  {
-    id: seedId(3, 204),
-    clause_key: "FR-3",
-    clause_type: "full_refund",
-    position: 4,
-    title: "Item not received",
-    content:
-      "If carrier tracking shows no delivery 10 days after the estimated delivery date, the customer is eligible for a full refund.",
-  },
-  {
-    id: seedId(3, 205),
-    clause_key: "PR-1",
-    clause_type: "partial_refund",
-    position: 5,
-    title: "Minor cosmetic defects",
-    content:
-      "For minor cosmetic defects that do not affect function, such as light scratches or scuffs, we offer a partial refund of up to 25% of the item price if the customer keeps the item. A photo of the defect is required.",
-  },
-  {
-    id: seedId(3, 206),
-    clause_key: "PR-2",
-    clause_type: "partial_refund",
-    position: 6,
-    title: "Missing parts or accessories",
-    content:
-      "If a component or accessory is missing, we refund the listed price of the missing part, up to 30% of the order total.",
-  },
-  {
-    id: seedId(3, 207),
-    clause_key: "EX-1",
-    clause_type: "exclusion",
-    position: 7,
-    title: "Final-sale and personalized items",
-    content:
-      "Items marked final sale, gift cards, and personalized or engraved items are not eligible for change-of-mind refunds. Damage and wrong-item claims still apply.",
-  },
-  {
-    id: seedId(3, 208),
-    clause_key: "EX-2",
-    clause_type: "exclusion",
-    position: 8,
-    title: "Change of mind",
-    content:
-      "Change-of-mind returns are accepted within the return window only for unused items in their original packaging, and the refund is issued after the item is returned. Original shipping costs are not refunded.",
-  },
-  {
-    id: seedId(3, 209),
-    clause_key: "EV-1",
-    clause_type: "evidence_requirement",
-    position: 9,
-    title: "Evidence for damage and defect claims",
-    content:
-      "Damage, defect, and cosmetic claims require at least one clear photo of the item and the issue. Without a photo the request stays open until evidence is provided.",
-  },
-  {
-    id: seedId(3, 210),
-    clause_key: "EV-2",
-    clause_type: "evidence_requirement",
-    position: 10,
-    title: "Evidence for non-delivery",
-    content:
-      "Non-delivery claims are checked against the carrier tracking record before a refund is approved.",
-  },
-  {
-    id: seedId(3, 211),
-    clause_key: "MR-1",
-    clause_type: "manual_review",
-    position: 11,
-    title: "Manual review",
-    content:
-      "A merchant must manually review refund requests above $500, a customer's third refund request within 90 days, and any request where the customer's statements conflict with order or tracking records.",
-  },
-]
+const policyV1Clauses: Clause[] = standardPolicyV1Clauses.map(
+  (clause, index) => ({ ...clause, id: seedId(3, 101 + index) }),
+)
+const policyV2Clauses: Clause[] = standardPolicyV2Clauses.map(
+  (clause, index) => ({ ...clause, id: seedId(3, 201 + index) }),
+)
 
 type DemoScenario = {
   n: number
@@ -510,7 +445,7 @@ async function main() {
     "merchant_id,user_id",
   )
 
-  await insertIgnoringDuplicates("return_policies", [
+  await ensurePublishedPolicy(
     {
       id: policyV1,
       merchant_id: MERCHANT,
@@ -521,8 +456,11 @@ async function main() {
       return_window_days: 14,
       effective_from: "2025-01-01",
       effective_until: "2025-12-31",
-      is_active: false,
     },
+    policyV1Clauses,
+    false,
+  )
+  await ensurePublishedPolicy(
     {
       id: policyV2,
       merchant_id: MERCHANT,
@@ -531,9 +469,13 @@ async function main() {
       description:
         "Current policy: 30-day window, full refunds for damage, wrong items, and non-delivery, partial refunds for cosmetic defects and missing parts.",
       return_window_days: 30,
+      manual_review_above_minor: 50000,
       effective_from: "2026-01-01",
-      is_active: true,
     },
+    policyV2Clauses,
+    true,
+  )
+  await ensurePublishedPolicy(
     {
       id: isolationPolicy,
       merchant_id: ISOLATION_MERCHANT,
@@ -541,32 +483,19 @@ async function main() {
       version: 1,
       return_window_days: 30,
       effective_from: "2026-01-01",
-      is_active: true,
     },
-  ])
-
-  await insertIgnoringDuplicates("policy_clauses", [
-    ...policyV1Clauses.map((clause) => ({
-      ...clause,
-      merchant_id: MERCHANT,
-      policy_id: policyV1,
-    })),
-    ...policyV2Clauses.map((clause) => ({
-      ...clause,
-      merchant_id: MERCHANT,
-      policy_id: policyV2,
-    })),
-    {
-      id: seedId(3, 901),
-      merchant_id: ISOLATION_MERCHANT,
-      policy_id: isolationPolicy,
-      clause_key: "RW-1",
-      clause_type: "return_window",
-      title: "Return window",
-      content:
-        "Isolation merchant clause. Must never be visible to other merchants.",
-    },
-  ])
+    [
+      {
+        id: seedId(3, 901),
+        clause_key: "RW-1",
+        clause_type: "return_window",
+        title: "Return window",
+        content:
+          "Isolation merchant clause. Must never be visible to other merchants.",
+      },
+    ],
+    true,
+  )
 
   await insertIgnoringDuplicates("orders", [
     ...scenarios.map(({ n, order }) => ({
