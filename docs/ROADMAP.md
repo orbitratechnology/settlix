@@ -330,7 +330,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - README links the live demo; the demo video link comes after recording.
 - **Exit:** deployed app + public repo ready for the demo video.
 
-## Phase 8 — Redesign for non-technical merchants ✅ (awaiting approval)
+## Phase 8 — Redesign for non-technical merchants ✅
 
 User feedback: screens were cluttered, small, and full of technical terms. Design skills installed
 in `.claude/skills/` (hallmark, design-taste-frontend, frontend-design); shadcn-admin used as the
@@ -374,7 +374,7 @@ type Schibsted Grotesk, palette kept from the PayPal brand), app "Framed sheet" 
   820 / 1440 in both themes with no horizontal overflow. Taste inspector on the landing: one FAIL
   (`few-pictures`: it wants photographs; the page's imagery is the product's own interface) and
   warnings reviewed.
-- **Exit:** user review; deploy by merging to `main` once approved.
+- **Exit:** approved by the user and merged to `main` (fast-forward), which Vercel deploys.
 
 ## After MVP (only on request)
 
