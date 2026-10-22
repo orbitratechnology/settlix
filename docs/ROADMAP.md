@@ -225,7 +225,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
     kept the result → receipt.
 - **Exit:** case → investigate → approve → genuine sandbox refund → receipt, end to end. ✅
 
-## Phase 6 — Reliability & negative paths ✅ (awaiting approval)
+## Phase 6 — Reliability & negative paths ✅
 
 - Migration `20261022060812_rate_limits.sql`: `consume_rate_limit()`, a per-merchant, per-action
   fixed-window counter (`private.rate_limit_buckets`, one row per bucket, updated with
@@ -289,12 +289,36 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   while the suite was being written left one captured, unused sandbox payment there.
 - **Exit:** critical negative paths fail safely and preserve truthful payment state.
 
-## Phase 7 — Dashboard, polish & submission readiness ⬜
+## Phase 7 — Dashboard, polish & submission readiness 🟡 (deployment waiting on the user)
 
-- Operational dashboard from persisted data (no fabricated metrics), attention list, integration health.
-- Accessibility/responsive audit, empty/error/loading states.
-- Deploy (Vercel) with env vars; Supabase Auth URLs; fresh-browser verification.
-- README per PRD §22, setup + sandbox + demo instructions, known limitations.
+- Demo data: the seed now includes policy v3 (v2's clauses + CN-1 cancellation before dispatch)
+  and skips versions that already exist by ID or by name + version (the live v3 was created in the
+  app). The seven investigations that predated v3 were re-run through the app as the demo user
+  (real Claude): same outcomes as before (DEMO-103 evidence, DEMO-108 not eligible, DEMO-104 / 109
+  / 110, STX-1023 / 1040 review), so the demo shows no "records changed" banners.
+- Dashboard (FR-17, from stored records only): new "Recent refunds" card (case, amount, PayPal
+  status, refund ID or "Demo record", receipt link); metric tiles are two columns on phones and the
+  odd "Confirmed refunded" tile spans two, so both grids stay full.
+- Error states: `(app)/error.tsx` (keeps the sidebar), `app/error.tsx`, `global-error.tsx`, with
+  retry and an error reference, never claiming whether a failed action changed anything.
+- Accessibility: `tests/e2e/a11y.e2e.ts` runs axe-core (WCAG 2.1 A/AA) on every screen (landing,
+  sign-in, dashboard, inbox, case with investigation and refund, receipt, policies, policy version,
+  payments, settings, 404) in light and dark mode. It found two real issues, both fixed: success
+  and destructive badge text below 4.5:1 on their tints (light `--success` → #0C7411, light
+  `--destructive` → red-700) and the landing logo link's name not matching its text. Now clean.
+- Production check: `next build` + `next start` with `SETTLIX_TEST_FAULTS=1` deliberately set: the
+  fault header is ignored (genuine "Claude isn't configured" instead of the injected timeout);
+  sign-in and every main page render; no server errors.
+- README per PRD §22 (summary, problem, features, architecture diagram, stack, prerequisites, local
+  setup and env vars, Supabase migrations and Auth URL, Claude, PayPal Sandbox setup incl. negative
+  testing, test payment → case → investigate → approve → receipt walkthrough, tests, Vercel
+  deployment, security notes, known limitations, demo video placeholder, license). The repository
+  is public with an MIT license.
+- Verified: `bun run check` (153 tests), build, Playwright deterministic specs 9/9 (E2E-06, E2E-08,
+  accessibility ×4), no horizontal overflow at 390 / 820 / 1440 px.
+- **Open:** deploy to Vercel (needs the user's Vercel account: import the repo and add the env vars;
+  README §15), set the Supabase Site URL, then fresh-browser verification of the deployed app; add
+  the live and video links to the README.
 - **Exit:** deployed app + public repo ready for the demo video.
 
 ## After MVP (only on request)

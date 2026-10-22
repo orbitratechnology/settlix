@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 export type Metric = {
   label: string
@@ -16,9 +17,18 @@ export type Metric = {
 /** Metric tiles in the shadcn dashboard style. Values always come from persisted records. */
 export function MetricCards({ metrics }: { metrics: Metric[] }) {
   return (
-    <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-      {metrics.map((metric) => (
-        <Card key={metric.label} className="@container/card">
+    <div className="grid grid-cols-2 gap-3 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:gap-4 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
+      {metrics.map((metric, index) => (
+        <Card
+          key={metric.label}
+          className={cn(
+            "@container/card",
+            // An odd last tile spans two columns so both grids stay full.
+            metrics.length % 2 === 1 &&
+              index === metrics.length - 1 &&
+              "col-span-2",
+          )}
+        >
           <CardHeader>
             <CardDescription>{metric.label}</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">

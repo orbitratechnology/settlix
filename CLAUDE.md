@@ -27,7 +27,10 @@ Hackathon 2026.
   password derived from `SUPABASE_SECRET_KEY`). Live specs (real sandbox checkout through the PayPal
   popup, real Claude, PayPal read-back) run only with `E2E_LIVE=1` and need
   `PAYPAL_SANDBOX_BUYER_EMAIL` / `PAYPAL_SANDBOX_BUYER_PASSWORD` and the Anthropic env.
-- `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`)
+  `a11y.e2e.ts` runs axe-core (WCAG 2.1 A/AA) on every screen in light and dark mode; serious or
+  critical findings fail it. Keep status colors AA as text on their own 10% tints.
+- `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`);
+  policy versions already present (by ID, or by name + version if created in the app) are skipped
 - `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
   with the sandbox buyer in between).
 - `bun run ai:eval [--runs N] [--only <fixture>]` — live Claude eval over the PRD §10.8 fixtures
@@ -98,6 +101,8 @@ Hackathon 2026.
   request evidence, send to review, and decline allow); server actions in `cases/[caseId]/actions.ts`.
 - `src/lib/receipts/receipt.ts` (receipt state, factual reply, copyable summary) +
   `src/lib/data/receipts.ts`; `/receipts/[receiptId]` uses the case ID.
+- Error boundaries: `src/app/(app)/error.tsx` (keeps the shell), `src/app/error.tsx`, `src/app/global-error.tsx`;
+  this Next.js passes `retry` (not `reset`). They never claim whether a failed action changed anything.
 - Client hooks that read the URL (`usePathname`) sit inside `<Suspense>` so dynamic routes still prerender a shell.
 - Request-time data (session, merchant data) is read inside `<Suspense>` boundaries; `getViewer()`
   calls `connection()` so auth is never prerendered or runtime-prefetched.

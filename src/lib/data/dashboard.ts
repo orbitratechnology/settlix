@@ -14,25 +14,41 @@ export async function getDashboardData() {
   const merchantId = member.workspace.id
   const supabase = await createClient()
 
-  const [statusRows, completedRefunds, attention] = await Promise.all([
-    supabase.from("cases").select("status").eq("merchant_id", merchantId),
-    supabase
-      .from("refund_attempts")
-      .select("approved_amount_minor, currency_code, origin")
-      .eq("merchant_id", merchantId)
-      .eq("status", "COMPLETED"),
-    supabase
-      .from("cases")
-      .select(
-        "id, case_number, customer_display_name, claimed_issue, status, origin, updated_at",
-      )
-      .eq("merchant_id", merchantId)
-      .in("status", attentionStatuses)
-      .order("updated_at", { ascending: false })
-      .limit(5),
-  ])
+  const [statusRows, completedRefunds, attention, recentRefunds] =
+    await Promise.all([
+      supabase.from("cases").select("status").eq("merchant_id", merchantId),
+      supabase
+        .from("refund_attempts")
+        .select("approved_amount_minor, currency_code, origin")
+        .eq("merchant_id", merchantId)
+        .eq("status", "COMPLETED"),
+      supabase
+        .from("cases")
+        .select(
+          "id, case_number, customer_display_name, claimed_issue, status, origin, updated_at",
+        )
+        .eq("merchant_id", merchantId)
+        .in("status", attentionStatuses)
+        .order("updated_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("refund_attempts")
+        .select(
+          `id, status, approved_amount_minor, currency_code, paypal_refund_id,
+         origin, created_at,
+         case:cases!refund_attempts_merchant_id_case_id_fkey(id, case_number)`,
+        )
+        .eq("merchant_id", merchantId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ])
 
-  for (const result of [statusRows, completedRefunds, attention]) {
+  for (const result of [
+    statusRows,
+    completedRefunds,
+    attention,
+    recentRefunds,
+  ]) {
     if (result.error) {
       throw new Error("Could not load dashboard", { cause: result.error })
     }
@@ -67,5 +83,6 @@ export async function getDashboardData() {
     confirmedRefundedMinor,
     demoCompletedCount,
     attention: attention.data ?? [],
+    recentRefunds: recentRefunds.data ?? [],
   }
 }

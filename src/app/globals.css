@@ -75,7 +75,9 @@
   --muted-foreground: oklch(0.501 0.025 259.2); /* #5B6472 */
   --accent: oklch(0.966 0.015 260.7); /* #EEF4FE */
   --accent-foreground: oklch(0.344 0.175 263.1); /* PayPal deep blue #002991 */
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(
+    0.505 0.213 27.518
+  ); /* red-700: AA as text on its own tint */
   --border: oklch(0.923 0.011 256.7); /* #E1E6ED */
   --input: oklch(0.923 0.011 256.7);
   --ring: oklch(0.555 0.229 260.2);
@@ -84,7 +86,9 @@
   --chart-3: oklch(0.344 0.175 263.1); /* #002991 */
   --chart-4: oklch(0.681 0.102 230.8); /* #4DA4CC */
   --chart-5: oklch(0.767 0 0); /* #B3B3B3 */
-  --success: oklch(0.537 0.174 143); /* PayPal green #0F8514 */
+  --success: oklch(
+    0.486 0.157 143
+  ); /* PayPal green, darkened to #0C7411 for AA on tints */
   --success-foreground: oklch(1 0 0);
   --warning: oklch(0.756 0.174 58.1); /* PayPal orange #FF8F1C */
   --warning-foreground: oklch(0.225 0.05 66); /* #2B1600 */

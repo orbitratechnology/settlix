@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js"
 
 import { DEMO_ACCOUNT } from "../src/lib/demo"
 import {
+  cancellationClause,
   standardPolicyV1Clauses,
   standardPolicyV2Clauses,
 } from "../src/lib/demo-policies"
@@ -105,7 +106,8 @@ async function ensureDemoUser() {
 /**
  * Published policy versions and their clauses are immutable, so a version is
  * inserted as a draft, given its clauses, then published (and optionally
- * activated). Versions that already exist are left untouched.
+ * activated). Versions that already exist (by ID, or by name and version when a
+ * merchant created it in the app) are left untouched.
  */
 async function ensurePublishedPolicy(
   policy: Omit<TablesInsert<"return_policies">, "is_active" | "published_at">,
@@ -115,7 +117,11 @@ async function ensurePublishedPolicy(
   const { data: existing, error: lookupError } = await db
     .from("return_policies")
     .select("id")
-    .eq("id", policy.id!)
+    .eq("merchant_id", policy.merchant_id)
+    .or(
+      `id.eq.${policy.id},and(name.eq."${policy.name}",version.eq.${policy.version})`,
+    )
+    .limit(1)
     .maybeSingle()
   if (lookupError) throw lookupError
   if (existing) {
@@ -151,6 +157,7 @@ async function ensurePublishedPolicy(
 
 const policyV1 = seedId(2, 1)
 const policyV2 = seedId(2, 2)
+const policyV3 = seedId(2, 3)
 const isolationPolicy = seedId(2, 9)
 
 type Clause = Omit<TablesInsert<"policy_clauses">, "merchant_id" | "policy_id">
@@ -161,6 +168,11 @@ const policyV1Clauses: Clause[] = standardPolicyV1Clauses.map(
 const policyV2Clauses: Clause[] = standardPolicyV2Clauses.map(
   (clause, index) => ({ ...clause, id: seedId(3, 201 + index) }),
 )
+// v3 adds cancellation before dispatch, the scenario a fresh sandbox payment fits.
+const policyV3Clauses: Clause[] = [
+  ...standardPolicyV2Clauses,
+  cancellationClause,
+].map((clause, index) => ({ ...clause, id: seedId(3, 301 + index) }))
 
 type DemoScenario = {
   n: number
@@ -467,12 +479,27 @@ async function main() {
       name: "Standard Return Policy",
       version: 2,
       description:
-        "Current policy: 30-day window, full refunds for damage, wrong items, and non-delivery, partial refunds for cosmetic defects and missing parts.",
+        "30-day window, full refunds for damage, wrong items, and non-delivery, partial refunds for cosmetic defects and missing parts. Superseded by version 3.",
       return_window_days: 30,
       manual_review_above_minor: 50000,
       effective_from: "2026-01-01",
     },
     policyV2Clauses,
+    false,
+  )
+  await ensurePublishedPolicy(
+    {
+      id: policyV3,
+      merchant_id: MERCHANT,
+      name: "Standard Return Policy",
+      version: 3,
+      description:
+        "Current policy: 30-day window, full refunds for damage, wrong items, non-delivery, and orders cancelled before dispatch, partial refunds for cosmetic defects and missing parts.",
+      return_window_days: 30,
+      manual_review_above_minor: 50000,
+      effective_from: "2026-01-01",
+    },
+    policyV3Clauses,
     true,
   )
   await ensurePublishedPolicy(

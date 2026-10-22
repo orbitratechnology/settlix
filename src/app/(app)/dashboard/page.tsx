@@ -1,11 +1,15 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowRightIcon, InboxIcon } from "lucide-react"
+import { ArrowRightIcon, InboxIcon, ReceiptTextIcon } from "lucide-react"
 
 import { MetricCards, type Metric } from "@/components/dashboard/metric-cards"
 import { PageContainer, PageHeader } from "@/components/page-header"
-import { CaseStatusBadge, OriginBadge } from "@/components/status-badges"
+import {
+  CaseStatusBadge,
+  OriginBadge,
+  RefundStatusBadge,
+} from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -245,6 +249,82 @@ async function DashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent refunds</CardTitle>
+          <CardDescription>
+            The latest refund attempts and what PayPal reported for each.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.recentRefunds.length === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ReceiptTextIcon />
+                </EmptyMedia>
+                <EmptyTitle>No refunds yet</EmptyTitle>
+                <EmptyDescription>
+                  Approved refunds appear here with the status PayPal returned.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Case</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden @3xl/main:table-cell">
+                    PayPal refund
+                  </TableHead>
+                  <TableHead className="hidden text-right @4xl/main:table-cell">
+                    Approved
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.recentRefunds.map((refund) => (
+                  <TableRow key={refund.id}>
+                    <TableCell>
+                      <Link
+                        href={`/receipts/${refund.case.id}`}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {refund.case.case_number}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMoney(
+                        refund.approved_amount_minor,
+                        refund.currency_code,
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <RefundStatusBadge status={refund.status} />
+                        <OriginBadge origin={refund.origin} />
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden font-mono text-xs @3xl/main:table-cell">
+                      {refund.paypal_refund_id ?? (
+                        <span className="font-sans text-muted-foreground">
+                          {refund.origin === "seed" ? "Demo record" : "None"}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden text-right text-muted-foreground @4xl/main:table-cell">
+                      {formatDateTime(refund.created_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -252,15 +332,21 @@ async function DashboardContent() {
 function DashboardSkeleton() {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 @xl/main:gap-4 @5xl/main:grid-cols-4">
         {Array.from({ length: 7 }, (_, index) => (
-          <Skeleton key={index} className="h-36 rounded-xl" />
+          <Skeleton
+            key={index}
+            className={
+              index === 6 ? "col-span-2 h-36 rounded-xl" : "h-36 rounded-xl"
+            }
+          />
         ))}
       </div>
       <div className="grid gap-4 @4xl/main:grid-cols-3">
         <Skeleton className="h-72 rounded-xl @4xl/main:col-span-2" />
         <Skeleton className="h-72 rounded-xl" />
       </div>
+      <Skeleton className="h-64 rounded-xl" />
     </>
   )
 }
