@@ -27,6 +27,33 @@ export type CaptureEvaluation =
     }
   | { ok: false; reason: "no_capture" | "mismatch"; detail: string }
 
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+export type Buyer = { email: string; name: string | null }
+
+/**
+ * The buyer PayPal reports on an approved order, kept so a customer's refund
+ * request can be matched to the order by email. Null when PayPal sent no usable
+ * email address.
+ */
+export function buyerFromPayer(
+  payer:
+    | {
+        email_address?: string
+        name?: { given_name?: string; surname?: string }
+      }
+    | undefined,
+): Buyer | null {
+  const email = payer?.email_address?.trim().toLowerCase()
+  if (!email || email.length > 254 || !EMAIL.test(email)) return null
+  const name = [payer?.name?.given_name, payer?.name?.surname]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 120)
+  return { email, name: name || null }
+}
+
 /**
  * Decides what a PayPal capture response means for a stored order. The order is
  * only marked paid when PayPal reports COMPLETED and the amount, currency, and

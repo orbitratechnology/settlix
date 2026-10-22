@@ -71,9 +71,64 @@ export type Database = {
           },
         ]
       }
+      case_messages: {
+        Row: {
+          author_id: string | null
+          body: string
+          case_id: string
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at: string
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          id: string
+          merchant_id: string
+          rfc_message_id: string | null
+          sender: Database["public"]["Enums"]["message_sender"]
+          subject: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          case_id: string
+          channel: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          id?: string
+          merchant_id: string
+          rfc_message_id?: string | null
+          sender: Database["public"]["Enums"]["message_sender"]
+          subject?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          case_id?: string
+          channel?: Database["public"]["Enums"]["message_channel"]
+          created_at?: string
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          id?: string
+          merchant_id?: string
+          rfc_message_id?: string | null
+          sender?: Database["public"]["Enums"]["message_sender"]
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_messages_merchant_id_case_id_fkey"
+            columns: ["merchant_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["merchant_id", "id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           case_number: string
+          channel: Database["public"]["Enums"]["case_channel"]
+          channel_source: string | null
           claimed_issue: string
           created_at: string
           created_by: string | null
@@ -81,6 +136,8 @@ export type Database = {
           customer_display_name: string
           customer_email: string | null
           customer_message: string
+          customer_verified: boolean
+          gmail_thread_id: string | null
           id: string
           merchant_id: string
           order_id: string
@@ -89,11 +146,14 @@ export type Database = {
           request_category: Database["public"]["Enums"]["request_category"]
           requested_amount_minor: number | null
           status: Database["public"]["Enums"]["case_status"]
+          status_token: string | null
           supporting_details: string | null
           updated_at: string
         }
         Insert: {
           case_number?: string
+          channel?: Database["public"]["Enums"]["case_channel"]
+          channel_source?: string | null
           claimed_issue: string
           created_at?: string
           created_by?: string | null
@@ -101,6 +161,8 @@ export type Database = {
           customer_display_name: string
           customer_email?: string | null
           customer_message: string
+          customer_verified?: boolean
+          gmail_thread_id?: string | null
           id?: string
           merchant_id: string
           order_id: string
@@ -109,11 +171,14 @@ export type Database = {
           request_category: Database["public"]["Enums"]["request_category"]
           requested_amount_minor?: number | null
           status?: Database["public"]["Enums"]["case_status"]
+          status_token?: string | null
           supporting_details?: string | null
           updated_at?: string
         }
         Update: {
           case_number?: string
+          channel?: Database["public"]["Enums"]["case_channel"]
+          channel_source?: string | null
           claimed_issue?: string
           created_at?: string
           created_by?: string | null
@@ -121,6 +186,8 @@ export type Database = {
           customer_display_name?: string
           customer_email?: string | null
           customer_message?: string
+          customer_verified?: boolean
+          gmail_thread_id?: string | null
           id?: string
           merchant_id?: string
           order_id?: string
@@ -129,6 +196,7 @@ export type Database = {
           request_category?: Database["public"]["Enums"]["request_category"]
           requested_amount_minor?: number | null
           status?: Database["public"]["Enums"]["case_status"]
+          status_token?: string | null
           supporting_details?: string | null
           updated_at?: string
         }
@@ -143,6 +211,144 @@ export type Database = {
           {
             foreignKeyName: "cases_merchant_id_order_id_fkey"
             columns: ["merchant_id", "order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["merchant_id", "id"]
+          },
+        ]
+      }
+      gmail_connections: {
+        Row: {
+          access_token_ciphertext: string | null
+          access_token_expires_at: string | null
+          connected_at: string
+          connected_by: string
+          google_email: string
+          google_subject: string
+          last_error: string | null
+          last_synced_at: string | null
+          merchant_id: string
+          refresh_token_ciphertext: string
+          scopes: string[]
+          status: Database["public"]["Enums"]["gmail_connection_status"]
+          sync_started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_ciphertext?: string | null
+          access_token_expires_at?: string | null
+          connected_at?: string
+          connected_by: string
+          google_email: string
+          google_subject: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          merchant_id: string
+          refresh_token_ciphertext: string
+          scopes: string[]
+          status?: Database["public"]["Enums"]["gmail_connection_status"]
+          sync_started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_ciphertext?: string | null
+          access_token_expires_at?: string | null
+          connected_at?: string
+          connected_by?: string
+          google_email?: string
+          google_subject?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          merchant_id?: string
+          refresh_token_ciphertext?: string
+          scopes?: string[]
+          status?: Database["public"]["Enums"]["gmail_connection_status"]
+          sync_started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_connections_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: true
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbound_emails: {
+        Row: {
+          body_text: string
+          case_id: string | null
+          created_at: string
+          from_email: string
+          from_name: string | null
+          gmail_message_id: string
+          gmail_thread_id: string
+          id: string
+          merchant_id: string
+          received_at: string
+          rfc_message_id: string | null
+          sender_authenticated: boolean
+          status: Database["public"]["Enums"]["inbound_email_status"]
+          subject: string | null
+          suggested_order_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          body_text: string
+          case_id?: string | null
+          created_at?: string
+          from_email: string
+          from_name?: string | null
+          gmail_message_id: string
+          gmail_thread_id: string
+          id?: string
+          merchant_id: string
+          received_at: string
+          rfc_message_id?: string | null
+          sender_authenticated: boolean
+          status: Database["public"]["Enums"]["inbound_email_status"]
+          subject?: string | null
+          suggested_order_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body_text?: string
+          case_id?: string | null
+          created_at?: string
+          from_email?: string
+          from_name?: string | null
+          gmail_message_id?: string
+          gmail_thread_id?: string
+          id?: string
+          merchant_id?: string
+          received_at?: string
+          rfc_message_id?: string | null
+          sender_authenticated?: boolean
+          status?: Database["public"]["Enums"]["inbound_email_status"]
+          subject?: string | null
+          suggested_order_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_emails_merchant_id_case_id_fkey"
+            columns: ["merchant_id", "case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["merchant_id", "id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_merchant_id_suggested_order_id_fkey"
+            columns: ["merchant_id", "suggested_order_id"]
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["merchant_id", "id"]
@@ -236,29 +442,35 @@ export type Database = {
       }
       merchants: {
         Row: {
+          auto_check_requests: boolean
           created_at: string
           default_currency: string
           id: string
           is_demo: boolean
           name: string
+          request_form_enabled: boolean
           slug: string
           updated_at: string
         }
         Insert: {
+          auto_check_requests?: boolean
           created_at?: string
           default_currency?: string
           id?: string
           is_demo?: boolean
           name: string
+          request_form_enabled?: boolean
           slug: string
           updated_at?: string
         }
         Update: {
+          auto_check_requests?: boolean
           created_at?: string
           default_currency?: string
           id?: string
           is_demo?: boolean
           name?: string
+          request_form_enabled?: boolean
           slug?: string
           updated_at?: string
         }
@@ -269,6 +481,8 @@ export type Database = {
           captured_at: string | null
           created_at: string
           currency_code: string
+          customer_email: string | null
+          customer_name: string | null
           description: string
           external_order_reference: string
           id: string
@@ -285,6 +499,8 @@ export type Database = {
           captured_at?: string | null
           created_at?: string
           currency_code: string
+          customer_email?: string | null
+          customer_name?: string | null
           description: string
           external_order_reference: string
           id?: string
@@ -301,6 +517,8 @@ export type Database = {
           captured_at?: string | null
           created_at?: string
           currency_code?: string
+          customer_email?: string | null
+          customer_name?: string | null
           description?: string
           external_order_reference?: string
           id?: string
@@ -579,6 +797,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consume_keyed_rate_limit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
+      }
       consume_rate_limit: {
         Args: {
           p_action: string
@@ -633,6 +855,7 @@ export type Database = {
     }
     Enums: {
       actor_type: "user" | "system" | "ai"
+      case_channel: "dashboard" | "form" | "email"
       case_priority: "low" | "normal" | "high" | "urgent"
       case_status:
         | "NEW"
@@ -654,7 +877,15 @@ export type Database = {
         | "manual_review"
         | "general"
       data_origin: "seed" | "app"
+      gmail_connection_status: "active" | "needs_reconnect"
+      inbound_email_status:
+        | "to_sort"
+        | "case_created"
+        | "follow_up"
+        | "dismissed"
       member_role: "owner" | "admin" | "reviewer" | "support"
+      message_channel: "form" | "status_page" | "gmail"
+      message_sender: "customer" | "merchant" | "settlix"
       order_payment_state:
         | "AWAITING_CAPTURE"
         | "CAPTURE_PENDING"
@@ -804,6 +1035,7 @@ export const Constants = {
   public: {
     Enums: {
       actor_type: ["user", "system", "ai"],
+      case_channel: ["dashboard", "form", "email"],
       case_priority: ["low", "normal", "high", "urgent"],
       case_status: [
         "NEW",
@@ -827,7 +1059,16 @@ export const Constants = {
         "general",
       ],
       data_origin: ["seed", "app"],
+      gmail_connection_status: ["active", "needs_reconnect"],
+      inbound_email_status: [
+        "to_sort",
+        "case_created",
+        "follow_up",
+        "dismissed",
+      ],
       member_role: ["owner", "admin", "reviewer", "support"],
+      message_channel: ["form", "status_page", "gmail"],
+      message_sender: ["customer", "merchant", "settlix"],
       order_payment_state: [
         "AWAITING_CAPTURE",
         "CAPTURE_PENDING",

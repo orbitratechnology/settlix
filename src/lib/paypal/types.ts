@@ -51,6 +51,11 @@ export type PayPalRefund = {
 export type PayPalOrder = {
   id: string
   status: OrderStatus
+  /** The buyer, once they approved the order. */
+  payer?: {
+    email_address?: string
+    name?: { given_name?: string; surname?: string }
+  }
   purchase_units?: {
     reference_id?: string
     custom_id?: string

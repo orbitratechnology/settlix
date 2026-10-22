@@ -4,7 +4,9 @@ import { randomBytes, randomUUID } from "node:crypto"
 
 import { recordAuditEvent } from "@/lib/audit/events"
 import {
+  buyerFromPayer,
   evaluateCapture,
+  type Buyer,
   type CaptureEvaluation,
 } from "@/lib/payments/capture-evaluation"
 import { findCatalogItem } from "@/lib/payments/catalog"
@@ -144,6 +146,7 @@ async function applyEvaluation(
   order: Order,
   evaluation: CaptureEvaluation,
   paypalOrderId: string,
+  buyer: Buyer | null = null,
 ): Promise<CheckoutOutcome> {
   const admin = createAdminClient()
   const actor = { type: "user" as const, id: member.userId }
@@ -176,6 +179,10 @@ async function applyEvaluation(
       captured_at:
         evaluation.paymentState === "CAPTURED" ? evaluation.capturedAt : null,
       payment_state: evaluation.paymentState,
+      // The buyer's PayPal email lets their refund request find this order.
+      ...(buyer
+        ? { customer_email: buyer.email, customer_name: buyer.name }
+        : {}),
     })
     .eq("id", order.id)
     .eq("merchant_id", member.workspace.id)
@@ -305,6 +312,7 @@ export async function captureSandboxCheckout(
     order,
     evaluateCapture(order, result),
     paypalOrderId,
+    buyerFromPayer(result.payer),
   )
 }
 
@@ -368,6 +376,7 @@ export async function refreshSandboxPayment(
       order,
       evaluateCapture(order, result),
       order.paypal_order_id,
+      buyerFromPayer(result.payer),
     )
   } catch (caught) {
     if (caught instanceof PayPalError) {

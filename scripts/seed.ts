@@ -16,7 +16,7 @@ import { createHash } from "node:crypto"
 
 import { createClient } from "@supabase/supabase-js"
 
-import { DEMO_ACCOUNT } from "../src/lib/demo"
+import { DEMO_ACCOUNT, DEMO_FORM_ORDERS } from "../src/lib/demo"
 import {
   cancellationClause,
   standardPolicyV1Clauses,
@@ -525,11 +525,27 @@ async function main() {
   )
 
   await insertIgnoringDuplicates("orders", [
-    ...scenarios.map(({ n, order }) => ({
+    ...scenarios.map(({ n, order, case: demoCase }) => ({
       payment_state: "CAPTURED" as const,
       ...order,
+      customer_email: demoCase.customer_email,
+      customer_name: demoCase.customer_display_name,
       id: seedId(4, n),
       merchant_id: MERCHANT,
+      origin: "seed" as const,
+    })),
+    // Orders without a request, for trying the public request form.
+    ...DEMO_FORM_ORDERS.map((order, index) => ({
+      id: seedId(4, 51 + index),
+      merchant_id: MERCHANT,
+      external_order_reference: order.reference,
+      description: order.description,
+      original_amount_minor: order.amountMinor,
+      currency_code: "USD",
+      payment_state: "CAPTURED" as const,
+      captured_at: daysAgo(order.capturedDaysAgo),
+      customer_email: order.email,
+      customer_name: order.name,
       origin: "seed" as const,
     })),
     {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { evaluateCapture } from "./capture-evaluation"
+import { buyerFromPayer, evaluateCapture } from "./capture-evaluation"
 
 const order = {
   id: "settlix-order-1",
@@ -82,5 +82,26 @@ describe("evaluateCapture", () => {
         referenceId: undefined,
       }),
     ).toMatchObject({ ok: false, reason: "no_capture" })
+  })
+})
+
+describe("buyerFromPayer", () => {
+  test("keeps the buyer's email (lowercased) and full name", () => {
+    expect(
+      buyerFromPayer({
+        email_address: " Sam.Rivera@Example.com ",
+        name: { given_name: "Sam", surname: "Rivera" },
+      }),
+    ).toEqual({ email: "sam.rivera@example.com", name: "Sam Rivera" })
+  })
+
+  test("a missing name is null, a missing or malformed email is no buyer", () => {
+    expect(buyerFromPayer({ email_address: "a@b.co" })).toEqual({
+      email: "a@b.co",
+      name: null,
+    })
+    expect(buyerFromPayer(undefined)).toBeNull()
+    expect(buyerFromPayer({ email_address: "not an email" })).toBeNull()
+    expect(buyerFromPayer({ name: { given_name: "Sam" } })).toBeNull()
   })
 })

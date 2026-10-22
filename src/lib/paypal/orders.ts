@@ -65,6 +65,7 @@ export type CaptureResult = {
   capture: PayPalCapture | undefined
   customId: string | undefined
   referenceId: string | undefined
+  payer: PayPalOrder["payer"]
 }
 
 /** Reads the first capture of the first purchase unit; order COMPLETED does not mean paid. */
@@ -80,6 +81,7 @@ export function captureFromOrder(
     capture: unit?.payments?.captures?.[0],
     customId: unit?.custom_id,
     referenceId: unit?.reference_id,
+    payer: order.payer,
   }
 }
 
