@@ -199,3 +199,56 @@ export async function createSeedCase(
   )
   return created
 }
+
+/**
+ * A labeled demo order with a buyer email and no request yet, for the public
+ * request form. The email is unique per call.
+ */
+export async function createBuyerOrder(db: E2eDb, description: string) {
+  const suffix = crypto.randomUUID().slice(0, 8).toUpperCase()
+  const order = await must(
+    db
+      .from("orders")
+      .insert({
+        merchant_id: E2E_MERCHANT_ID,
+        external_order_reference: `E2E-F${suffix}`,
+        description,
+        original_amount_minor: 3800,
+        currency_code: "USD",
+        captured_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+        payment_state: "CAPTURED",
+        origin: "seed",
+        customer_email: `buyer-${suffix.toLowerCase()}@example.com`,
+        customer_name: `Form Buyer ${suffix}`,
+      })
+      .select("id, external_order_reference, customer_email, customer_name")
+      .single(),
+  )
+  return {
+    id: order.id,
+    reference: order.external_order_reference,
+    email: order.customer_email!,
+    name: order.customer_name!,
+  }
+}
+
+type StoreSettings = {
+  request_form_enabled: boolean
+  auto_check_requests: boolean
+}
+
+/** Sets the E2E store's form settings and returns the previous ones. */
+export async function setStoreSettings(
+  db: E2eDb,
+  settings: Partial<StoreSettings>,
+): Promise<StoreSettings> {
+  const previous = await must(
+    db
+      .from("merchants")
+      .select("request_form_enabled, auto_check_requests")
+      .eq("id", E2E_MERCHANT_ID)
+      .single(),
+  )
+  await must(db.from("merchants").update(settings).eq("id", E2E_MERCHANT_ID))
+  return previous
+}

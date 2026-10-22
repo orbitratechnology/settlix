@@ -35,6 +35,9 @@ export const metadata: Metadata = {
   title: "Request form",
 }
 
+// "Check Gmail" may acknowledge and check new requests right after (after()).
+export const maxDuration = 90
+
 export default function RequestFormPage() {
   return (
     <PageContainer>

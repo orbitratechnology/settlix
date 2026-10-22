@@ -36,6 +36,9 @@ export const metadata: Metadata = {
   title: "Refund requests",
 }
 
+// "Check Gmail" may acknowledge and check new requests right after (after()).
+export const maxDuration = 90
+
 export default function CasesPage({ searchParams }: PageProps<"/cases">) {
   return (
     <PageContainer>

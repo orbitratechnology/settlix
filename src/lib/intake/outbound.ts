@@ -48,6 +48,8 @@ export async function postStoreMessage(input: {
   email: boolean
   origin: string
   subject?: string
+  /** Tests pass a Gmail double. */
+  fetchImpl?: typeof fetch
 }): Promise<StoreMessageResult> {
   const { admin, merchantId, caseId } = input
   const body = input.body.trim().slice(0, 5000)
@@ -97,13 +99,18 @@ export async function postStoreMessage(input: {
         ? replySubject(row.case_number, latest?.subject)
         : requestSubject(row.case_number)
       try {
-        sent = await sendFromGmail(admin, merchantId, {
-          to: row.customer_email,
-          subject,
-          body: withStatusLink(body, link),
-          threadId: row.gmail_thread_id,
-          inReplyTo: latest?.rfc_message_id ?? null,
-        })
+        sent = await sendFromGmail(
+          admin,
+          merchantId,
+          {
+            to: row.customer_email,
+            subject,
+            body: withStatusLink(body, link),
+            threadId: row.gmail_thread_id,
+            inReplyTo: latest?.rfc_message_id ?? null,
+          },
+          input.fetchImpl,
+        )
       } catch (caught) {
         if (!(caught instanceof GmailError)) throw caught
         emailError = caught.message

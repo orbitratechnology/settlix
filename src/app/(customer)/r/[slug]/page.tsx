@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 // Settlix may email a confirmation and check the request with Claude right
 // after the form is sent (after()), within this function's time.
-export const maxDuration = 120
+export const maxDuration = 90
 
 function currencySymbol(currency: string) {
   return (

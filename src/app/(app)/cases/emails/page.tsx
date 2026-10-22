@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   title: "Emails to sort",
 }
 
-export const maxDuration = 120
+export const maxDuration = 90
 
 export default function EmailsToSortPage() {
   return (

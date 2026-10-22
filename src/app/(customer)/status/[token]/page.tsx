@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 }
 
 // A reply can have Settlix check the request again right after (after()).
-export const maxDuration = 120
+export const maxDuration = 90
 
 export default async function StatusPage({
   params,
