@@ -289,7 +289,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   while the suite was being written left one captured, unused sandbox payment there.
 - **Exit:** critical negative paths fail safely and preserve truthful payment state.
 
-## Phase 7 — Dashboard, polish & submission readiness 🟡 (deployment waiting on the user)
+## Phase 7 — Dashboard, polish & submission readiness ✅ (awaiting approval)
 
 - Demo data: the seed now includes policy v3 (v2's clauses + CN-1 cancellation before dispatch)
   and skips versions that already exist by ID or by name + version (the live v3 was created in the
@@ -316,9 +316,18 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   is public with an MIT license.
 - Verified: `bun run check` (153 tests), build, Playwright deterministic specs 9/9 (E2E-06, E2E-08,
   accessibility ×4), no horizontal overflow at 390 / 820 / 1440 px.
-- **Open:** deploy to Vercel (needs the user's Vercel account: import the repo and add the env vars;
-  README §15), set the Supabase Site URL, then fresh-browser verification of the deployed app; add
-  the live and video links to the README.
+- Deployed by the user on Vercel: **https://settlix-demo.vercel.app** (from `main`), Supabase Site
+  URL set. Fresh-browser checks: HTTPS + HSTS, signed-out `/dashboard` → sign-in, anonymous API 401,
+  demo sign-in and data, integration health; the test-fault header is ignored in production.
+- The first live run caught two deployment issues: `ANTHROPIC_API_KEY` missing (the cloud-session
+  name was used), then a key Anthropic rejected (401) while the dashboard still said "Configured".
+  Integration health now checks Claude for real (Anthropic model lookup, no tokens: Connected / Key
+  rejected / Model not found / Not reachable), and 401/403 investigations say the key was rejected.
+- Playwright against the deployment (`E2E_BASE_URL`, own E2E workspace): accessibility ×4, E2E-08 ×3,
+  E2E-03, and live E2E-01 + E2E-04 (STX-1064, refund `26848256760132720`), E2E-02 (STX-1065, $7.00
+  refund `2JF96408XS659423F`, cross-checked with the PayPal MCP), E2E-05 (STX-1066, one refund
+  `2YH29936RD645784X`). E2E-06/07 need the test-fault switch, which is off in production by design.
+- README links the live demo; the demo video link comes after recording.
 - **Exit:** deployed app + public repo ready for the demo video.
 
 ## After MVP (only on request)
