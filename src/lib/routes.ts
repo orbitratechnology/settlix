@@ -6,6 +6,7 @@ export const protectedPrefixes = [
   "/payments",
   "/settings",
   "/receipts",
+  "/request-form",
 ] as const
 
 export function isProtectedPath(pathname: string) {

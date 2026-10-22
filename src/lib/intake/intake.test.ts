@@ -115,10 +115,15 @@ describe("customerStatus", () => {
     expect(customerStatus("RECOVERY_REQUIRED", null).stage).toBe("decided")
   })
 
-  test("asks for information only while the store is waiting on it", () => {
-    expect(customerStatus("NEEDS_EVIDENCE", null)).toMatchObject({
+  test("asks for information only once the store asked for it", () => {
+    expect(customerStatus("NEEDS_EVIDENCE", null, true)).toMatchObject({
       tone: "attention",
       canAddInfo: true,
+    })
+    // Claude's check alone doesn't put a question to the customer.
+    expect(customerStatus("NEEDS_EVIDENCE", null, false)).toMatchObject({
+      stage: "reviewing",
+      tone: "progress",
     })
     expect(customerStatus("REFUND_PENDING", null).canAddInfo).toBe(false)
   })

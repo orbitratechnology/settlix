@@ -24,10 +24,17 @@ export const customerStages: { stage: CustomerStage; label: string }[] = [
   { stage: "refunded", label: "Refunded" },
 ]
 
+/**
+ * `storeAsked`: the store's latest message came after the customer's last one.
+ * A request only waits on the customer once the store actually asked; a status
+ * set by Claude's check alone is not a question to the customer.
+ */
 export function customerStatus(
   status: CaseStatus,
   refunded: { amount: string } | null,
+  storeAsked = false,
 ): CustomerStatus {
+  if (status === "NEEDS_EVIDENCE" && !storeAsked) status = "NEEDS_REVIEW"
   switch (status) {
     case "NEW":
       return {

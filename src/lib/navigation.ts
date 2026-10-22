@@ -2,6 +2,7 @@ import {
   CreditCardIcon,
   InboxIcon,
   LayoutDashboardIcon,
+  QrCodeIcon,
   ScrollTextIcon,
   Settings2Icon,
   type LucideIcon,
@@ -26,6 +27,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Store setup",
     items: [
+      { title: "Request form", href: "/request-form", icon: QrCodeIcon },
       { title: "Return policies", href: "/policies", icon: ScrollTextIcon },
       { title: "Payments", href: "/payments", icon: CreditCardIcon },
     ],
@@ -49,6 +51,8 @@ export const segmentLabels: Record<string, string> = {
   policies: "Return policies",
   payments: "Payments",
   settings: "Settings",
+  "request-form": "Request form",
+  emails: "Emails to sort",
 }
 
 /** Labels for the record page under a section, e.g. /cases/<id> → "Case". */

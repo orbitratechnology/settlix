@@ -16,4 +16,8 @@ export const can = {
   runSandboxCheckout: (role: MemberRole) => roleRank[role] >= roleRank.reviewer,
   approveRefunds: (role: MemberRole) => roleRank[role] >= roleRank.reviewer,
   managePolicies: (role: MemberRole) => roleRank[role] >= roleRank.admin,
+  /** Request form settings and the Gmail connection. */
+  manageStore: (role: MemberRole) => roleRank[role] >= roleRank.admin,
+  /** Post on a customer's status page or email them from the store's Gmail. */
+  messageCustomers: (role: MemberRole) => roleRank[role] >= roleRank.support,
 }

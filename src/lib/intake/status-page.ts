@@ -84,7 +84,12 @@ export async function getStatusPage(
     item: row.order.description,
     submittedAt: row.created_at,
     status: row.status,
-    view: customerStatus(row.status, refunded),
+    view: customerStatus(
+      row.status,
+      refunded,
+      // A person at the store wrote last (not Settlix's acknowledgement).
+      row.messages.at(-1)?.sender === "merchant",
+    ),
     messages: row.messages.map((message) => ({
       id: message.id,
       fromStore: message.sender !== "customer",
