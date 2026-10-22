@@ -225,7 +225,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
     kept the result → receipt.
 - **Exit:** case → investigate → approve → genuine sandbox refund → receipt, end to end. ✅
 
-## Phase 6 — Reliability & negative paths 🟡
+## Phase 6 — Reliability & negative paths ✅ (awaiting approval)
 
 - Migration `20261022060812_rate_limits.sql`: `consume_rate_limit()`, a per-merchant, per-action
   fixed-window counter (`private.rate_limit_buckets`, one row per bucket, updated with
@@ -266,7 +266,27 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
     without external services; E2E-01/02/03/04/05/07 and the PayPal decline run live
     (`E2E_LIVE=1`) against the real sandbox (buyer approves the popup) and Claude, and read
     PayPal's own record back.
-- Live E2E run (E2E-01/02/05/07): in progress.
+- Verified: `bun run check` (153 tests, incl. 28 integration), build, advisors (one new INFO:
+  RLS on `private.rate_limit_buckets` has no policies, by design: only the service role uses it).
+- Full Playwright run with `E2E_LIVE=1`: **10/10 passed in 3.4 min** (real sandbox buyer popup,
+  real Claude, PayPal read-back; refunds also cross-checked with the PayPal MCP `get_refund`):
+  - E2E-08: demo case page / receipt not found with no customer data, all three POST routes 404,
+    cross-site POST 403, signed-out → `/login` and 401. E2E-06: `ai_timeout` and
+    `ai_invalid_output` show the error, the case stays `NEW`, no investigation or attempt.
+  - E2E-03: Claude asks for the photo (EV-1), "Needs evidence", no approve action, API 409.
+  - E2E-01 + E2E-04: STX-1046, capture `5RJ691278T982821N` → amount $24.01 refused (409, no
+    attempt) → double-clicked approval → refund `6PX479337C5659904` COMPLETED $24.00, one refund
+    at PayPal → receipt shows it.
+  - E2E-02: STX-1047, price adjustment (PA-1) → refund `0E7507558N481333E` COMPLETED $7.00,
+    payment Partially refunded.
+  - E2E-05: STX-1048, two simultaneous approvals → one `completed`, one `in_progress` /
+    `already_refunded`; one refund at PayPal (`69833824JF299702X`), one attempt.
+  - E2E-07: STX-1049 → PayPal decline (negative testing, 422 `REFUND_FAILED_INSUFFICIENT_FUNDS`,
+    nothing refunded, `REFUND_FAILED`) → re-investigated → refund sent, response dropped →
+    `RECOVERY_REQUIRED`, no approve action → "Check with PayPal" replays the same request →
+    PayPal returns the original refund `2NY19533VW135582S` (HTTP 200) → Refunded, still one refund.
+- E2E data lives in the "Settlix E2E Store" workspace, never the public demo. Earlier attempts
+  while the suite was being written left one captured, unused sandbox payment there.
 - **Exit:** critical negative paths fail safely and preserve truthful payment state.
 
 ## Phase 7 — Dashboard, polish & submission readiness ⬜
