@@ -68,7 +68,10 @@ async function EmailList() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Link href="/cases" className={buttonVariants({ variant: "outline" })}>
+          <Link
+            href="/cases"
+            className={buttonVariants({ variant: "outline" })}
+          >
             Back to refund requests
           </Link>
         </EmptyContent>
@@ -110,7 +113,9 @@ async function EmailList() {
               <CardContent className="grid gap-6 @3xl/card:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
                 <div className="flex flex-col gap-2">
                   <blockquote className="rounded-xl bg-muted px-4 py-3 text-[0.9375rem] leading-relaxed break-words whitespace-pre-line">
-                    {long ? `${email.body_text.slice(0, 400)}…` : email.body_text}
+                    {long
+                      ? `${email.body_text.slice(0, 400)}…`
+                      : email.body_text}
                   </blockquote>
                   {long ? (
                     <Disclosure label="Show the whole email">

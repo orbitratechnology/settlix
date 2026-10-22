@@ -105,7 +105,8 @@ export function replyDraft(input: {
   customerName: string
   orderReference: string
   refund: {
-    status: "REQUESTED" | "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED"
+    status:
+      "REQUESTED" | "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED"
     amount: string
     paypalRefundId: string | null
   } | null

@@ -145,7 +145,8 @@ export async function ensureStatusToken(
     .is("status_token", null)
     .select("status_token")
     .maybeSingle()
-  if (error) throw new Error("Could not create the status link", { cause: error })
+  if (error)
+    throw new Error("Could not create the status link", { cause: error })
   if (data?.status_token) return data.status_token
   // Another request set it first.
   const { data: row, error: reloadError } = await admin
@@ -330,7 +331,10 @@ export async function submitPublicRequest(
       return { status: "invalid_amount", message: "Use an amount like 12.50." }
     }
     if (requestedAmountMinor <= 0) {
-      return { status: "invalid_amount", message: "Enter an amount above zero." }
+      return {
+        status: "invalid_amount",
+        message: "Enter an amount above zero.",
+      }
     }
     if (requestedAmountMinor > order.original_amount_minor) {
       return {

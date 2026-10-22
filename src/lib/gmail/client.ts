@@ -45,7 +45,8 @@ export async function getGmailConnection(
     .select(VIEW_COLUMNS)
     .eq("merchant_id", merchantId)
     .maybeSingle()
-  if (error) throw new Error("Could not load the Gmail connection", { cause: error })
+  if (error)
+    throw new Error("Could not load the Gmail connection", { cause: error })
   if (!data) return null
   const permissions = grantedPermissions(data.scopes.join(" "))
   return {
@@ -81,7 +82,8 @@ const messages: Record<GmailErrorKind, string> = {
   not_connected: "Connect Gmail first.",
   needs_reconnect:
     "Google ended Settlix's access to this Gmail. Reconnect it to continue.",
-  missing_permission: "This Gmail connection doesn't allow that. Reconnect it and tick the permission.",
+  missing_permission:
+    "This Gmail connection doesn't allow that. Reconnect it and tick the permission.",
   unavailable: "Gmail didn't respond. Try again in a minute.",
 }
 
@@ -120,7 +122,8 @@ export async function gmailAccessToken(
     .select("*")
     .eq("merchant_id", merchantId)
     .maybeSingle()
-  if (error) throw new Error("Could not load the Gmail connection", { cause: error })
+  if (error)
+    throw new Error("Could not load the Gmail connection", { cause: error })
   if (!row) throw gmailError("not_connected")
   if (row.status === "needs_reconnect") throw gmailError("needs_reconnect")
   if (!grantedPermissions(row.scopes.join(" "))[need]) {
@@ -189,7 +192,11 @@ export async function gmailAccessToken(
 async function gmailRequest<T>(
   token: string,
   path: string,
-  init: { method?: string; body?: unknown; query?: Record<string, string | string[]> } = {},
+  init: {
+    method?: string
+    body?: unknown
+    query?: Record<string, string | string[]>
+  } = {},
   fetchImpl: typeof fetch = fetch,
 ): Promise<T> {
   const url = new URL(`${GMAIL_API}${path}`)

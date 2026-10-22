@@ -80,9 +80,7 @@ describe("classifyRequest", () => {
 describe("issue summary", () => {
   test("uses a meaningful subject, minus reply prefixes", () => {
     expect(cleanSubject("Re: Fwd:  Cracked   carafe")).toBe("Cracked carafe")
-    expect(summarizeIssue("RE: Cracked carafe", "Hello")).toBe(
-      "Cracked carafe",
-    )
+    expect(summarizeIssue("RE: Cracked carafe", "Hello")).toBe("Cracked carafe")
   })
 
   test("falls back to the first sentence when the subject says nothing", () => {
@@ -185,11 +183,14 @@ describe("messages", () => {
 
   test("mailto links encode spaces and keep the address readable", () => {
     expect(
-      mailtoHref({ to: "a.b@example.com", subject: "Re: x y", body: "Hi\nyou" }),
+      mailtoHref({
+        to: "a.b@example.com",
+        subject: "Re: x y",
+        body: "Hi\nyou",
+      }),
     ).toBe("mailto:a.b@example.com?subject=Re%3A%20x%20y&body=Hi%0Ayou")
     expect(
-      mailtoHref({ to: "a@b.co", subject: "s", body: "x".repeat(5000) })
-        .length,
+      mailtoHref({ to: "a@b.co", subject: "s", body: "x".repeat(5000) }).length,
     ).toBeLessThan(2000)
   })
 })
@@ -204,7 +205,11 @@ describe("message drafts", () => {
   test("a completed refund is stated with PayPal's reference, not Claude's words", () => {
     const text = replyDraft({
       ...base,
-      refund: { status: "COMPLETED", amount: "$89.00", paypalRefundId: "1J3010819W148030C" },
+      refund: {
+        status: "COMPLETED",
+        amount: "$89.00",
+        paypalRefundId: "1J3010819W148030C",
+      },
     })
     expect(text).toStartWith("Hi Maya,")
     expect(text).toContain("refunded $89.00 for order HP-10421")

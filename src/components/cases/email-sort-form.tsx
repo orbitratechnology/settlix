@@ -84,7 +84,9 @@ export function EmailSortForm({
           type="button"
           variant="ghost"
           disabled={pending || dismissing}
-          onClick={() => startDismiss(async () => void (await dismissEmail(emailId)))}
+          onClick={() =>
+            startDismiss(async () => void (await dismissEmail(emailId)))
+          }
         >
           {dismissing ? (
             <Spinner data-icon="inline-start" />

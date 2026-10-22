@@ -161,7 +161,8 @@ export type CheckGmailResult =
  */
 export async function checkGmailNow(): Promise<CheckGmailResult> {
   const member = await requireMember()
-  if (!can.investigate(member.role)) return { status: "error", message: "Your role can't do this." }
+  if (!can.investigate(member.role))
+    return { status: "error", message: "Your role can't do this." }
   const admin = createAdminClient()
   if (!(await consumeRateLimit(admin, member.workspace.id, "gmail.sync"))) {
     return { status: "rate_limited" }

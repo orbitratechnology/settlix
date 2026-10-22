@@ -105,8 +105,8 @@ async function IntakeNotices() {
             {waiting === 1 ? "s" : ""} an order
           </AlertTitle>
           <AlertDescription>
-            Settlix couldn&apos;t tell which order {waiting === 1 ? "it is" : "they are"}{" "}
-            about.{" "}
+            Settlix couldn&apos;t tell which order{" "}
+            {waiting === 1 ? "it is" : "they are"} about.{" "}
             <Link href="/cases/emails" className="font-medium underline">
               Sort {waiting === 1 ? "it" : "them"}
             </Link>

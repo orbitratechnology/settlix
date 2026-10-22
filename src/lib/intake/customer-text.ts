@@ -3,7 +3,8 @@ import { formatDateTime } from "@/lib/format"
 /** What the database allows in cases.customer_message. */
 export const CUSTOMER_MESSAGE_LIMIT = 5000
 
-export type CustomerTextSource = "the request form" | "email" | "the status page"
+export type CustomerTextSource =
+  "the request form" | "email" | "the status page"
 
 /**
  * Adds a later message from the customer to the request's text, which is what
@@ -22,6 +23,8 @@ export function appendCustomerText(
   const text = addition.trim()
   if (!text || room < 40) return null
   const fitted =
-    text.length <= room ? text : `${text.slice(0, room - 12).trimEnd()} (shortened)`
+    text.length <= room
+      ? text
+      : `${text.slice(0, room - 12).trimEnd()} (shortened)`
   return `${existing}${label}${fitted}`
 }

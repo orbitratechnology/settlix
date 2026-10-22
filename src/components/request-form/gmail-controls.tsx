@@ -51,7 +51,11 @@ export function ConnectGmailForm({
     <form action={formAction} className="flex flex-col gap-5">
       <FieldGroup className="gap-4">
         <Field orientation="horizontal">
-          <Checkbox id="gmail-send" name="send" defaultChecked={defaults.send} />
+          <Checkbox
+            id="gmail-send"
+            name="send"
+            defaultChecked={defaults.send}
+          />
           <FieldContent>
             <FieldLabel htmlFor="gmail-send">
               Send replies from my Gmail
@@ -63,7 +67,11 @@ export function ConnectGmailForm({
           </FieldContent>
         </Field>
         <Field orientation="horizontal">
-          <Checkbox id="gmail-read" name="read" defaultChecked={defaults.read} />
+          <Checkbox
+            id="gmail-read"
+            name="read"
+            defaultChecked={defaults.read}
+          />
           <FieldContent>
             <FieldLabel htmlFor="gmail-read">
               Bring refund emails into Settlix
@@ -181,10 +189,7 @@ export function DisconnectGmailButton() {
   )
 }
 
-const results: Record<
-  string,
-  { ok: boolean; title: string; text?: string }
-> = {
+const results: Record<string, { ok: boolean; title: string; text?: string }> = {
   connected: { ok: true, title: "Gmail connected" },
   connected_send: {
     ok: true,

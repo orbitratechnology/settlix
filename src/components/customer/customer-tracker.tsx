@@ -14,7 +14,8 @@ function stepStates(view: CustomerStatus): StepState[] {
     if (view.stage === "refunded") return "done"
     if (view.tone === "closed") return position <= index ? "done" : "skipped"
     if (position < index) return "done"
-    if (position === index) return view.tone === "attention" ? "attention" : "current"
+    if (position === index)
+      return view.tone === "attention" ? "attention" : "current"
     return "todo"
   })
 }

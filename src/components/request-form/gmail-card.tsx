@@ -71,8 +71,8 @@ export async function GmailCard() {
         {!configured ? (
           <div className="flex flex-col gap-3 text-[0.9375rem]">
             <p className="text-muted-foreground">
-              Gmail isn&apos;t set up on this server yet. Until it is, use
-              “Open in email app” on a request to reply from your own email.
+              Gmail isn&apos;t set up on this server yet. Until it is, use “Open
+              in email app” on a request to reply from your own email.
             </p>
             <Disclosure label="Technical details">
               <p className="text-sm text-muted-foreground">

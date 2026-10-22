@@ -96,7 +96,10 @@ function partCharset(part: GmailMessagePart) {
     ?.value
 }
 
-function walk(part: GmailMessagePart | undefined, visit: (p: GmailMessagePart) => void) {
+function walk(
+  part: GmailMessagePart | undefined,
+  visit: (p: GmailMessagePart) => void,
+) {
   if (!part) return
   visit(part)
   for (const child of part.parts ?? []) walk(child, visit)
@@ -261,7 +264,8 @@ export function parseGmailMessage(message: GmailMessage): ParsedEmail | null {
   return {
     gmailMessageId: message.id,
     threadId: message.threadId,
-    rfcMessageId: headerValue(message, "Message-ID")?.match(MESSAGE_ID)?.[0] ?? null,
+    rfcMessageId:
+      headerValue(message, "Message-ID")?.match(MESSAGE_ID)?.[0] ?? null,
     references: [
       ...(headerValue(message, "References")?.match(MESSAGE_ID) ?? []),
     ].slice(-10),

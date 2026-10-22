@@ -198,8 +198,8 @@ async function RequestFormContent() {
           <CardHeader>
             <CardTitle>QR code</CardTitle>
             <CardDescription>
-              For packaging, receipts, and the counter. Scanning opens the
-              form on the customer&apos;s phone.
+              For packaging, receipts, and the counter. Scanning opens the form
+              on the customer&apos;s phone.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5">

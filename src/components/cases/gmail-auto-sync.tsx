@@ -11,7 +11,11 @@ const STALE_MS = 3 * 60 * 1000
  * few minutes old, so emailed requests show up without a button. New rows
  * appear through the action's refresh.
  */
-export function GmailAutoSync({ lastSyncedAt }: { lastSyncedAt: string | null }) {
+export function GmailAutoSync({
+  lastSyncedAt,
+}: {
+  lastSyncedAt: string | null
+}) {
   const started = useRef(false)
   useEffect(() => {
     if (started.current) return

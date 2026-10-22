@@ -98,7 +98,8 @@ const error = (
 ): InvestigationResponse => ({ status: "error", code, message, aiFailure })
 
 /** Who started a run: a member, or Settlix checking a new request on arrival. */
-export type InvestigationActor = { type: "user"; id: string } | { type: "system" }
+export type InvestigationActor =
+  { type: "user"; id: string } | { type: "system" }
 
 /**
  * PRD §13 POST /api/cases/[caseId]/investigate. Runs Claude on the case's

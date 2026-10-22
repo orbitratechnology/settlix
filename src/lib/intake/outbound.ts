@@ -55,9 +55,7 @@ export async function postStoreMessage(input: {
 
   const { data: row, error } = await admin
     .from("cases")
-    .select(
-      "id, case_number, customer_email, status_token, gmail_thread_id",
-    )
+    .select("id, case_number, customer_email, status_token, gmail_thread_id")
     .eq("merchant_id", merchantId)
     .eq("id", caseId)
     .single()
@@ -71,8 +69,7 @@ export async function postStoreMessage(input: {
   )
   const link = statusUrl(input.origin, token)
 
-  let sent: { messageId: string; threadId: string; from: string } | null =
-    null
+  let sent: { messageId: string; threadId: string; from: string } | null = null
   let emailError: string | null = null
   let subject = input.subject ?? null
   if (input.email) {

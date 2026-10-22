@@ -96,7 +96,9 @@ export default async function CasePage({
     ? statusPageUrl(origin, detail.status_token)
     : null
   const gmailCanSend =
-    connection?.status === "active" && connection.canSend && detail.customer_email
+    connection?.status === "active" &&
+    connection.canSend &&
+    detail.customer_email
   const delivery: Delivery = gmailCanSend
     ? { kind: "gmail", from: connection.email }
     : detail.customer_email

@@ -234,7 +234,8 @@ export function identityFromIdToken(
   const audienceOk = Array.isArray(claims.aud)
     ? claims.aud.includes(clientId)
     : claims.aud === clientId
-  const fresh = typeof claims.exp === "number" && claims.exp * 1000 > now - 60_000
+  const fresh =
+    typeof claims.exp === "number" && claims.exp * 1000 > now - 60_000
   if (!issuerOk || !audienceOk || !fresh) {
     throw new GoogleOAuthError("invalid_id_token", "ID token rejected.")
   }

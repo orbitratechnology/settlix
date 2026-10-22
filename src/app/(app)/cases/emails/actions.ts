@@ -37,25 +37,27 @@ export async function openRequestFromEmail(
 
   const admin = createAdminClient()
   const merchantId = member.workspace.id
-  const [{ data: email, error: emailError }, { data: order, error: orderError }] =
-    await Promise.all([
-      admin
-        .from("inbound_emails")
-        .select("*")
-        .eq("merchant_id", merchantId)
-        .eq("id", parsed.data.emailId)
-        .eq("status", "to_sort")
-        .maybeSingle(),
-      admin
-        .from("orders")
-        .select(
-          "id, external_order_reference, customer_email, customer_name, currency_code",
-        )
-        .eq("merchant_id", merchantId)
-        .eq("id", parsed.data.orderId)
-        .in("payment_state", ["CAPTURED", "PARTIALLY_REFUNDED", "REFUNDED"])
-        .maybeSingle(),
-    ])
+  const [
+    { data: email, error: emailError },
+    { data: order, error: orderError },
+  ] = await Promise.all([
+    admin
+      .from("inbound_emails")
+      .select("*")
+      .eq("merchant_id", merchantId)
+      .eq("id", parsed.data.emailId)
+      .eq("status", "to_sort")
+      .maybeSingle(),
+    admin
+      .from("orders")
+      .select(
+        "id, external_order_reference, customer_email, customer_name, currency_code",
+      )
+      .eq("merchant_id", merchantId)
+      .eq("id", parsed.data.orderId)
+      .in("payment_state", ["CAPTURED", "PARTIALLY_REFUNDED", "REFUNDED"])
+      .maybeSingle(),
+  ])
   if (emailError || orderError) {
     throw new Error("Could not load the email or order", {
       cause: emailError ?? orderError,
@@ -124,7 +126,9 @@ export async function openRequestFromEmail(
         storeName: member.workspace.name,
         caseId: created.id,
         origin,
-      }).catch(() => console.error("Could not acknowledge", { caseId: created.id }))
+      }).catch(() =>
+        console.error("Could not acknowledge", { caseId: created.id }),
+      )
     }
     if (store?.auto_check_requests) {
       await autoCheckRequest(merchantId, created.id).catch(() =>
@@ -138,7 +142,8 @@ export async function openRequestFromEmail(
 /** "Not a refund request": the email leaves the list; Gmail is untouched. */
 export async function dismissEmail(emailId: string): Promise<SortState> {
   const member = await requireMember()
-  if (!can.createCases(member.role)) return { error: "Your role can't do this." }
+  if (!can.createCases(member.role))
+    return { error: "Your role can't do this." }
   if (!z.uuid().safeParse(emailId).success) return { error: "Email not found." }
   const admin = createAdminClient()
   const { data, error } = await admin

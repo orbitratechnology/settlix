@@ -97,27 +97,35 @@ describe("Google OAuth", () => {
   })
 
   test("exchanges the code with the verifier and reports Google's errors", async () => {
-    const fetchMock = mock(async (_url: string | URL | Request, init?: RequestInit) => {
-      const body = new URLSearchParams(String(init?.body))
-      expect(body.get("code_verifier")).toBe("verifier")
-      expect(body.get("grant_type")).toBe("authorization_code")
-      return Response.json({
-        access_token: "ya29.a",
-        expires_in: 3599,
-        refresh_token: "1//r",
-        scope: GMAIL_SCOPES.send,
-        id_token: "x.y.z",
-      })
-    })
+    const fetchMock = mock(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = new URLSearchParams(String(init?.body))
+        expect(body.get("code_verifier")).toBe("verifier")
+        expect(body.get("grant_type")).toBe("authorization_code")
+        return Response.json({
+          access_token: "ya29.a",
+          expires_in: 3599,
+          refresh_token: "1//r",
+          scope: GMAIL_SCOPES.send,
+          id_token: "x.y.z",
+        })
+      },
+    )
     const tokens = await exchangeCode(
       { client, code: "code", codeVerifier: "verifier" },
       fetchMock as unknown as typeof fetch,
     )
-    expect(tokens).toMatchObject({ accessToken: "ya29.a", refreshToken: "1//r" })
+    expect(tokens).toMatchObject({
+      accessToken: "ya29.a",
+      refreshToken: "1//r",
+    })
 
     const revoked = mock(async () =>
       Response.json(
-        { error: "invalid_grant", error_description: "Token has been expired or revoked." },
+        {
+          error: "invalid_grant",
+          error_description: "Token has been expired or revoked.",
+        },
         { status: 400 },
       ),
     )
@@ -131,11 +139,15 @@ describe("Google OAuth", () => {
 
   test("revoking an already invalid token counts as done", async () => {
     const fetch400 = mock(async () => new Response("", { status: 400 }))
-    expect(await revokeToken("t", fetch400 as unknown as typeof fetch)).toBe(true)
+    expect(await revokeToken("t", fetch400 as unknown as typeof fetch)).toBe(
+      true,
+    )
     const offline = mock(async () => {
       throw new Error("down")
     })
-    expect(await revokeToken("t", offline as unknown as typeof fetch)).toBe(false)
+    expect(await revokeToken("t", offline as unknown as typeof fetch)).toBe(
+      false,
+    )
   })
 
   test("reads the verified email from the ID token and rejects others", () => {
@@ -200,10 +212,19 @@ describe("outgoing email", () => {
       }),
     ).toThrow(MimeError)
     expect(() =>
-      buildRawEmail({ to: "a@b.co", subject: "x", body: "y", inReplyTo: "bad" }),
+      buildRawEmail({
+        to: "a@b.co",
+        subject: "x",
+        body: "y",
+        inReplyTo: "bad",
+      }),
     ).toThrow(MimeError)
     const raw = decode(
-      buildRawEmail({ to: "a@b.co", subject: "Line\r\nBcc: x@y.co", body: "y" }),
+      buildRawEmail({
+        to: "a@b.co",
+        subject: "Line\r\nBcc: x@y.co",
+        body: "y",
+      }),
     )
     expect(raw).not.toContain("\r\nBcc:")
     expect(encodeHeaderText("Rückerstattung")).toBe(
@@ -256,9 +277,9 @@ describe("incoming email", () => {
     expect(stripQuotedReply("Thanks\n-- \nSam\nSent from my phone")).toBe(
       "Thanks",
     )
-    expect(htmlToText("<p>Hi&nbsp;there</p><p>It&#39;s broken<br>sorry</p>")).toBe(
-      "Hi there\nIt's broken\nsorry",
-    )
+    expect(
+      htmlToText("<p>Hi&nbsp;there</p><p>It&#39;s broken<br>sorry</p>"),
+    ).toBe("Hi there\nIt's broken\nsorry")
   })
 
   test("reads a multipart message with an attachment", () => {
@@ -327,11 +348,19 @@ describe("incoming email", () => {
         },
       })?.authenticated
 
-    expect(auth(["mx.google.com; spf=pass smtp.mailfrom=bounce@example.com"])).toBe(true)
-    expect(auth(["mx.google.com; dkim=pass header.i=@mail.example.com"])).toBe(false)
+    expect(
+      auth(["mx.google.com; spf=pass smtp.mailfrom=bounce@example.com"]),
+    ).toBe(true)
+    expect(auth(["mx.google.com; dkim=pass header.i=@mail.example.com"])).toBe(
+      false,
+    )
     expect(auth(["mx.google.com; dkim=pass header.d=example.com"])).toBe(true)
-    expect(auth(["mx.google.com; dmarc=fail header.from=example.com"])).toBe(false)
-    expect(auth(["mx.google.com; spf=pass smtp.mailfrom=x@other.example"])).toBe(false)
+    expect(auth(["mx.google.com; dmarc=fail header.from=example.com"])).toBe(
+      false,
+    )
+    expect(
+      auth(["mx.google.com; spf=pass smtp.mailfrom=x@other.example"]),
+    ).toBe(false)
     // A forged result below Gmail's own doesn't count.
     expect(
       auth([

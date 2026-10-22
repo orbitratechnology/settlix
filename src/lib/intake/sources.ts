@@ -23,7 +23,7 @@ export function channelLabel(
   if (channel === "email") return "An email to your Gmail"
   if (channel === "form") {
     const via = sourceLabel(source)
-    return via ? `Your request form, from the ${via.toLowerCase()}` : "Your request form"
+    return via ? `Your request form (${via})` : "Your request form"
   }
   return "Added in Settlix"
 }

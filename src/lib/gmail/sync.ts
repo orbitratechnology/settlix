@@ -80,7 +80,11 @@ export type SyncResult =
 
 type Order = Pick<
   Tables<"orders">,
-  "id" | "external_order_reference" | "customer_email" | "customer_name" | "currency_code"
+  | "id"
+  | "external_order_reference"
+  | "customer_email"
+  | "customer_name"
+  | "currency_code"
 >
 
 const ORDER_COLUMNS =
@@ -178,7 +182,9 @@ export async function createCaseFromEmail(
       merchant_id: merchantId,
       order_id: order.id,
       customer_display_name:
-        parsed.fromName || order.customer_name || nameFromEmail(parsed.fromEmail),
+        parsed.fromName ||
+        order.customer_name ||
+        nameFromEmail(parsed.fromEmail),
       customer_email: parsed.fromEmail,
       customer_message: text.slice(0, 5000),
       claimed_issue: summarizeIssue(parsed.subject, text),
@@ -204,7 +210,11 @@ export async function createCaseFromEmail(
     summary: options.createdBy
       ? `Request ${created.case_number} opened from an email in Gmail for order ${order.external_order_reference}.`
       : `Request ${created.case_number} opened from an email in Gmail for order ${order.external_order_reference}. The sender's address matched the order and Gmail verified it.`,
-    metadata: { channel: "email", order_id: order.id, verified: options.verified },
+    metadata: {
+      channel: "email",
+      order_id: order.id,
+      verified: options.verified,
+    },
   })
   return created
 }
@@ -242,17 +252,25 @@ export async function syncGmail(
     )
     .select("google_email, scopes, last_synced_at")
     .maybeSingle()
-  if (claimError) throw new Error("Could not start the sync", { cause: claimError })
+  if (claimError)
+    throw new Error("Could not start the sync", { cause: claimError })
   if (!claimed) return { status: "busy" }
 
-  const release = (fields: Database["public"]["Tables"]["gmail_connections"]["Update"]) =>
+  const release = (
+    fields: Database["public"]["Tables"]["gmail_connections"]["Update"],
+  ) =>
     admin
       .from("gmail_connections")
       .update({ sync_started_at: null, ...fields })
       .eq("merchant_id", merchantId)
 
   try {
-    const { token } = await gmailAccessToken(admin, merchantId, "read", fetchImpl)
+    const { token } = await gmailAccessToken(
+      admin,
+      merchantId,
+      "read",
+      fetchImpl,
+    )
     const since = claimed.last_synced_at
       ? new Date(Date.parse(claimed.last_synced_at) - OVERLAP_MS)
       : new Date(startedAt.getTime() - FIRST_SYNC_DAYS * 86_400_000)
@@ -271,7 +289,8 @@ export async function syncGmail(
           .eq("merchant_id", merchantId)
           .in("gmail_message_id", ids)
       : { data: [], error: null }
-    if (knownError) throw new Error("Could not read stored emails", { cause: knownError })
+    if (knownError)
+      throw new Error("Could not read stored emails", { cause: knownError })
     const seen = new Set(known.map((row) => row.gmail_message_id))
 
     const summary: SyncSummary = {
@@ -288,22 +307,31 @@ export async function syncGmail(
     // Oldest first, so a thread's first email opens the request.
     for (const { id } of [...listed].reverse()) {
       if (seen.has(id)) continue
-      const parsed = parseGmailMessage(await getGmailMessage(token, id, fetchImpl))
+      const parsed = parseGmailMessage(
+        await getGmailMessage(token, id, fetchImpl),
+      )
       summary.checked += 1
-      if (!parsed || parsed.automated || normalizeEmail(parsed.fromEmail) === own) {
+      if (
+        !parsed ||
+        parsed.automated ||
+        normalizeEmail(parsed.fromEmail) === own
+      ) {
         continue
       }
 
       // 1. A reply in a request's thread joins that request.
       const { data: threadCase } = await admin
         .from("cases")
-        .select("id, case_number, status, customer_message, customer_email, order_id")
+        .select(
+          "id, case_number, status, customer_message, customer_email, order_id",
+        )
         .eq("merchant_id", merchantId)
         .eq("gmail_thread_id", parsed.threadId)
         .maybeSingle()
       if (
         threadCase?.customer_email &&
-        normalizeEmail(threadCase.customer_email) === normalizeEmail(parsed.fromEmail)
+        normalizeEmail(threadCase.customer_email) ===
+          normalizeEmail(parsed.fromEmail)
       ) {
         if (
           await recordInbound(admin, merchantId, parsed, {
@@ -332,9 +360,14 @@ export async function syncGmail(
 
       // 2. An email from the order's buyer, verified by Gmail, opens a request
       //    (or joins the order's open one).
-      const { byReference, bySender } = await ordersForEmail(admin, merchantId, parsed)
+      const { byReference, bySender } = await ordersForEmail(
+        admin,
+        merchantId,
+        parsed,
+      )
       const chosen = byReference.length
-        ? (byReference.find((order) => sameEmail(order, parsed.fromEmail)) ?? null)
+        ? (byReference.find((order) => sameEmail(order, parsed.fromEmail)) ??
+          null)
         : bySender.length === 1
           ? bySender[0]
           : null
@@ -382,32 +415,41 @@ export async function syncGmail(
                 .is("gmail_thread_id", null)
             }
             summary.followUps += 1
-            if (open.status === "NEEDS_EVIDENCE") summary.recheckCaseIds.push(open.id)
+            if (open.status === "NEEDS_EVIDENCE")
+              summary.recheckCaseIds.push(open.id)
           }
           continue
         }
 
-        const created = await createCaseFromEmail(admin, merchantId, parsed, chosen, {
-          verified: true,
-          createdBy: null,
-          linkThread: true,
-        })
+        const created = await createCaseFromEmail(
+          admin,
+          merchantId,
+          parsed,
+          chosen,
+          {
+            verified: true,
+            createdBy: null,
+            linkThread: true,
+          },
+        )
         const stored = await recordInbound(admin, merchantId, parsed, {
           status: "case_created",
           case_id: created.id,
           suggested_order_id: chosen.id,
         })
-        const { error: messageError } = await admin.from("case_messages").insert({
-          merchant_id: merchantId,
-          case_id: created.id,
-          sender: "customer",
-          channel: "gmail",
-          subject: parsed.subject,
-          body: (parsed.text || "(No text)").slice(0, 5000),
-          gmail_message_id: parsed.gmailMessageId,
-          gmail_thread_id: parsed.threadId,
-          rfc_message_id: parsed.rfcMessageId,
-        })
+        const { error: messageError } = await admin
+          .from("case_messages")
+          .insert({
+            merchant_id: merchantId,
+            case_id: created.id,
+            sender: "customer",
+            channel: "gmail",
+            subject: parsed.subject,
+            body: (parsed.text || "(No text)").slice(0, 5000),
+            gmail_message_id: parsed.gmailMessageId,
+            gmail_thread_id: parsed.threadId,
+            rfc_message_id: parsed.rfcMessageId,
+          })
         if (messageError && messageError.code !== "23505") {
           throw new Error("Could not save the email", { cause: messageError })
         }

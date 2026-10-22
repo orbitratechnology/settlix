@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(
       new URL(`/request-form?gmail=${result}#gmail`, origin),
     )
-    response.cookies.set(OAUTH_COOKIE, "", { path: OAUTH_COOKIE_PATH, maxAge: 0 })
+    response.cookies.set(OAUTH_COOKIE, "", {
+      path: OAUTH_COOKIE_PATH,
+      maxAge: 0,
+    })
     return response
   }
 
@@ -123,7 +126,8 @@ export async function GET(request: NextRequest) {
       },
       { onConflict: "merchant_id" },
     )
-    if (error) throw new Error("Could not save the connection", { cause: error })
+    if (error)
+      throw new Error("Could not save the connection", { cause: error })
 
     await recordAuditEvent(admin, {
       merchantId,
@@ -133,7 +137,11 @@ export async function GET(request: NextRequest) {
       metadata: { send: granted.send, read: granted.read },
     })
     return back(
-      granted.send && granted.read ? "connected" : granted.send ? "connected_send" : "connected_read",
+      granted.send && granted.read
+        ? "connected"
+        : granted.send
+          ? "connected_send"
+          : "connected_read",
     )
   } catch (caught) {
     if (caught instanceof GoogleOAuthError) {

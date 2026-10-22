@@ -154,7 +154,9 @@ export function RequestForm({
             <FieldError>{errors.order}</FieldError>
           </Field>
           <Field data-invalid={invalid("email")}>
-            <FieldLabel htmlFor="email">Email you used for the order</FieldLabel>
+            <FieldLabel htmlFor="email">
+              Email you used for the order
+            </FieldLabel>
             <Input
               id="email"
               name="email"
@@ -247,7 +249,12 @@ export function RequestForm({
       </FieldGroup>
 
       <div className="flex flex-col gap-3">
-        <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-fit">
+        <Button
+          type="submit"
+          size="lg"
+          disabled={pending}
+          className="w-full sm:w-fit"
+        >
           {pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
@@ -256,9 +263,9 @@ export function RequestForm({
           {pending ? "Sending…" : "Send request"}
         </Button>
         <p className="text-sm text-muted-foreground">
-          {storeName} sees your message and order. Settlix checks the order,
-          and Claude (an AI) helps the store review your request. A person at
-          the store makes the decision.
+          {storeName} sees your message and order. Settlix checks the order, and
+          Claude (an AI) helps the store review your request. A person at the
+          store makes the decision.
         </p>
       </div>
     </form>

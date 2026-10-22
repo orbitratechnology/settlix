@@ -58,7 +58,10 @@ export function summarizeIssue(
   body: string,
 ): string {
   const cleaned = cleanSubject(subject)
-  if (cleaned.length >= 6 && !/^(refund|return|help|hi|hello|order)$/i.test(cleaned)) {
+  if (
+    cleaned.length >= 6 &&
+    !/^(refund|return|help|hi|hello|order)$/i.test(cleaned)
+  ) {
     return cleaned.slice(0, 300)
   }
   const sentence =

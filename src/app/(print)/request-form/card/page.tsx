@@ -19,7 +19,11 @@ export const metadata: Metadata = {
 export default function RequestCardPage() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-8 bg-muted/50 p-6 print:bg-white print:p-0">
-      <Suspense fallback={<Skeleton className="h-[34rem] w-full max-w-sm rounded-2xl" />}>
+      <Suspense
+        fallback={
+          <Skeleton className="h-[34rem] w-full max-w-sm rounded-2xl" />
+        }
+      >
         <RequestCard />
       </Suspense>
     </main>

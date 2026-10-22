@@ -36,7 +36,8 @@ export async function updateRequestFormSetting(
   }
   if (member.workspace.isDemo) {
     return {
-      error: "The shared demo store keeps these settings so every visitor can try them.",
+      error:
+        "The shared demo store keeps these settings so every visitor can try them.",
     }
   }
 

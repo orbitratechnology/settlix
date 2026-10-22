@@ -28,10 +28,7 @@ export function encryptSecret(
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", key, iv)
   cipher.setAAD(Buffer.from(context, "utf8"))
-  const data = Buffer.concat([
-    cipher.update(plaintext, "utf8"),
-    cipher.final(),
-  ])
+  const data = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()])
   return [
     VERSION,
     iv.toString("base64url"),
