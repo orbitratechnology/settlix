@@ -36,10 +36,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldDescription,
   FieldError,
+  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
@@ -63,6 +65,7 @@ function TextActionDialog({
   defaultText,
   submitLabel,
   destructive = false,
+  extra,
 }: {
   caseId: string
   action: ActionFn
@@ -75,6 +78,8 @@ function TextActionDialog({
   defaultText?: string
   submitLabel: string
   destructive?: boolean
+  /** More fields, under the text. */
+  extra?: React.ReactNode
 }) {
   const [state, formAction, pending] = useActionState<
     CaseActionState,
@@ -106,7 +111,7 @@ function TextActionDialog({
             <Textarea
               id={id}
               name="text"
-              rows={4}
+              rows={extra ? 7 : 4}
               required
               maxLength={1000}
               defaultValue={defaultText}
@@ -114,6 +119,7 @@ function TextActionDialog({
             {hint ? <FieldDescription>{hint}</FieldDescription> : null}
             <FieldError />
           </Field>
+          {extra}
           <DialogFooter>
             <DialogClose render={<Button type="button" variant="outline" />}>
               Cancel
@@ -142,12 +148,15 @@ type ActionKey = "note" | "requestEvidence" | "sendToReview" | "decline"
 export function CaseActions({
   caseId,
   allowed,
-  missingEvidence,
+  evidenceDraft,
+  notify,
 }: {
   caseId: string
   allowed: Record<ActionKey, boolean>
-  /** Prefills the information request from Claude's latest check. */
-  missingEvidence: string[]
+  /** The information request, prefilled from Claude's latest check. */
+  evidenceDraft: string
+  /** Whether the request can go to the customer, and by Gmail. */
+  notify: { email: boolean } | null
 }) {
   const [openAction, setOpenAction] = useState<ActionKey | null>(null)
   const dialogProps = (key: ActionKey) => ({
@@ -218,10 +227,33 @@ export function CaseActions({
           {...dialogProps("requestEvidence")}
           action={requestEvidence}
           title="Ask the customer for more"
-          description="Saves what you asked for and moves the request to “Waiting on customer”. Settlix doesn't send the message: copy the drafted reply into your email or help desk."
-          label="What you asked for"
-          defaultText={missingEvidence.join("\n")}
-          submitLabel="Save"
+          description="Moves the request to “Waiting on customer”. When they reply, Settlix adds it to the request and Claude checks it again."
+          label="Message to the customer"
+          defaultText={evidenceDraft}
+          submitLabel={notify ? "Send" : "Save"}
+          extra={
+            notify ? (
+              <FieldGroup className="gap-3">
+                <Field orientation="horizontal">
+                  <Checkbox id="evidence-notify" name="notify" defaultChecked />
+                  <FieldLabel htmlFor="evidence-notify" className="font-normal">
+                    Post it on the customer&apos;s request page
+                  </FieldLabel>
+                </Field>
+                {notify.email ? (
+                  <Field orientation="horizontal">
+                    <Checkbox id="evidence-email" name="email" defaultChecked />
+                    <FieldLabel
+                      htmlFor="evidence-email"
+                      className="font-normal"
+                    >
+                      Email it from your Gmail too
+                    </FieldLabel>
+                  </Field>
+                ) : null}
+              </FieldGroup>
+            ) : null
+          }
         />
       ) : null}
       {allowed.sendToReview ? (

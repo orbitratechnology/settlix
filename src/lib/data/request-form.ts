@@ -1,20 +1,12 @@
 import "server-only"
 
+import { sourceLabel } from "@/lib/intake/sources"
 import { requireMember } from "@/lib/security/auth"
 import { createClient } from "@/lib/supabase/server"
 
 const SOURCE_DAYS = 30
 
 export type SourceCount = { label: string; count: number }
-
-const sourceLabels: Record<string, string> = {
-  qr: "QR code",
-  print: "Printed card",
-  email: "Email signature",
-  receipt: "Order confirmation",
-  site: "Website button",
-  chat: "Messages and social",
-}
 
 /** The request form's settings and where its requests came from lately. */
 export async function getRequestFormOverview() {
@@ -48,9 +40,7 @@ export async function getRequestFormOverview() {
     const label =
       row.channel === "email"
         ? "Gmail"
-        : row.channel_source
-          ? (sourceLabels[row.channel_source] ?? `Link tagged “${row.channel_source}”`)
-          : "Form link"
+        : (sourceLabel(row.channel_source) ?? "Form link")
     counts.set(label, (counts.get(label) ?? 0) + 1)
   }
 

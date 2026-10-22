@@ -19,6 +19,8 @@ export type InboxRow = {
   status: CaseStatus
   priority: Enums<"case_priority">
   origin: Enums<"data_origin">
+  /** How the request arrived: added in the dashboard, the form, or Gmail. */
+  channel: Enums<"case_channel">
   createdAt: string
   orderReference: string
   latestAction: ProposedAction | null

@@ -11,10 +11,17 @@ import {
 } from "@/lib/cases/actions"
 import { caseStatusMeta } from "@/lib/domain/labels"
 import { formatDateTime } from "@/lib/format"
-import { requireMember } from "@/lib/security/auth"
+import { postStoreMessage } from "@/lib/intake/outbound"
+import { can, requireMember } from "@/lib/security/auth"
+import { siteOrigin } from "@/lib/site"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export type CaseActionState = { error?: string; done?: boolean }
+export type CaseActionState = {
+  error?: string
+  done?: boolean
+  /** Set when the message also went to the customer. */
+  notice?: string
+}
 
 const MAX_NOTES = 5000
 
@@ -136,11 +143,85 @@ async function transition(
     summary: `${auditSummaries[action]}: ${parsed.data}`,
     metadata: { from_status: row.status, to_status: target },
   })
+
+  // "Ask the customer for more" can send the text to the customer as well.
+  let notice: string | undefined
+  if (
+    action === "requestEvidence" &&
+    formData.get("notify") === "on" &&
+    can.messageCustomers(member.role)
+  ) {
+    const sent = await postStoreMessage({
+      admin,
+      merchantId: member.workspace.id,
+      caseId: row.id,
+      body: parsed.data,
+      author: { type: "user", id: member.userId },
+      email: formData.get("email") === "on",
+      origin: await siteOrigin(),
+    })
+    notice = sent.emailed
+      ? "Sent to the customer by email and on their request page."
+      : sent.emailError
+        ? `Posted on the customer's request page. Not emailed: ${sent.emailError}`
+        : "Posted on the customer's request page."
+  }
   refresh()
-  return { done: true }
+  return { done: true, notice }
 }
 
-/** Records what evidence was asked for. Settlix doesn't message customers. */
+const messageSchema = z
+  .string()
+  .trim()
+  .min(1, "Write the message first.")
+  .max(5000, "Keep it under 5,000 characters.")
+
+export type MessageState = {
+  error?: string
+  sent?: { emailed: boolean; emailError: string | null; at: number }
+  /** For "open in email app": the status link to include. */
+  statusUrl?: string
+}
+
+/**
+ * A message from the store to the customer: always on the customer's request
+ * page; emailed from the store's Gmail when `delivery` is "gmail".
+ */
+export async function sendCustomerMessage(
+  caseId: string,
+  _previous: MessageState,
+  formData: FormData,
+): Promise<MessageState> {
+  const loaded = await loadForAction(caseId)
+  if (!loaded) return { error: "Request not found." }
+  const { member, admin, row } = loaded
+  if (!can.messageCustomers(member.role)) {
+    return { error: "Your role can't message customers." }
+  }
+  const parsed = messageSchema.safeParse(formData.get("text"))
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  const result = await postStoreMessage({
+    admin,
+    merchantId: member.workspace.id,
+    caseId: row.id,
+    body: parsed.data,
+    author: { type: "user", id: member.userId },
+    email: formData.get("delivery") === "gmail",
+    origin: await siteOrigin(),
+  })
+  refresh()
+  return {
+    sent: {
+      emailed: result.emailed,
+      emailError: result.emailError,
+      at: Date.now(),
+    },
+    statusUrl: result.statusUrl,
+  }
+}
+
+/** Records what evidence was asked for, and can send it to the customer. */
 export async function requestEvidence(
   caseId: string,
   _previous: CaseActionState,

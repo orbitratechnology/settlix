@@ -19,6 +19,7 @@ const row = (overrides: Partial<InboxRow>): InboxRow => ({
   status: "NEW",
   priority: "normal",
   origin: "seed",
+  channel: "dashboard",
   createdAt: "2026-10-10T00:00:00.000Z",
   orderReference: "HP-1",
   latestAction: null,

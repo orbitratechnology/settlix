@@ -4,8 +4,10 @@ import { classifyRequest, cleanSubject, summarizeIssue } from "./classify"
 import { customerStatus } from "./customer-status"
 import {
   acknowledgementMessage,
+  evidenceRequestDraft,
   firstName,
   mailtoHref,
+  replyDraft,
   replySubject,
   requestFormUrl,
   statusUrl,
@@ -189,5 +191,52 @@ describe("messages", () => {
       mailtoHref({ to: "a@b.co", subject: "s", body: "x".repeat(5000) })
         .length,
     ).toBeLessThan(2000)
+  })
+})
+
+describe("message drafts", () => {
+  const base = {
+    customerName: "Maya Chen",
+    orderReference: "HP-10421",
+    claudeDraft: "Hi Maya, could you send a photo?",
+  }
+
+  test("a completed refund is stated with PayPal's reference, not Claude's words", () => {
+    const text = replyDraft({
+      ...base,
+      refund: { status: "COMPLETED", amount: "$89.00", paypalRefundId: "1J3010819W148030C" },
+    })
+    expect(text).toStartWith("Hi Maya,")
+    expect(text).toContain("refunded $89.00 for order HP-10421")
+    expect(text).toContain("1J3010819W148030C")
+  })
+
+  test("a pending refund never claims to be complete", () => {
+    const text = replyDraft({
+      ...base,
+      refund: { status: "PENDING", amount: "$89.00", paypalRefundId: null },
+    })
+    expect(text).toContain("still processing")
+    expect(text).not.toContain("We've refunded")
+  })
+
+  test("before a refund, Claude's draft is offered", () => {
+    expect(replyDraft({ ...base, refund: null })).toBe(base.claudeDraft)
+    expect(
+      replyDraft({
+        ...base,
+        refund: { status: "FAILED", amount: "$1.00", paypalRefundId: null },
+        claudeDraft: null,
+      }),
+    ).toBe("")
+  })
+
+  test("an evidence request lists what's missing in the customer's terms", () => {
+    expect(
+      evidenceRequestDraft("Sam Rivera", ["A photo of the torn seam", " "]),
+    ).toBe(
+      "Hi Sam,\n\nThanks for your request. To continue, could you send us:\n- A photo of the torn seam\n\nYou can reply on your request page or to this email.",
+    )
+    expect(evidenceRequestDraft("", [])).toContain("Hi there,")
   })
 })

@@ -7,7 +7,6 @@ import {
 } from "lucide-react"
 
 import { Disclosure } from "@/components/cases/case-facts"
-import { ReplyDraft } from "@/components/investigations/reply-draft"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -195,14 +194,16 @@ export function RecommendationView({
         )}
       </Section>
 
-      <Section title="Reply to the customer">
-        <div className="rounded-xl bg-muted p-4">
-          <ReplyDraft
-            key={record.id}
-            initial={recommendation.suggestedCustomerReply}
-          />
-        </div>
-      </Section>
+      <p className="text-[0.9375rem] text-muted-foreground">
+        Claude also drafted a reply to the customer. It&apos;s ready in{" "}
+        <a
+          href="#messages"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Messages
+        </a>
+        , for you to edit and send.
+      </p>
 
       <Disclosure label="Claude's full reasoning">
         <div className="flex flex-col gap-6">

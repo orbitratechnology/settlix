@@ -10,6 +10,7 @@ import {
   refreshSandboxPayment,
   type CheckoutOutcome,
 } from "@/lib/payments/checkout"
+import { newStatusToken } from "@/lib/intake/tokens"
 import { payPalToMinor } from "@/lib/paypal/money"
 import { can, requireMember } from "@/lib/security/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -132,6 +133,8 @@ export async function createCaseFromPayment(
       supporting_details: input.supportingDetails || null,
       origin: "app",
       created_by: member.userId,
+      // So the customer can be sent a link to follow the request.
+      status_token: newStatusToken(),
     })
     .select("id, case_number")
     .single()

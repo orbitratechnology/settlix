@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
 /**
- * Editable customer reply (FR-15). Edits stay in the browser: Settlix never
- * sends messages, so the merchant copies the text into their help desk.
+ * Editable customer reply (FR-15) to copy elsewhere. Edits stay in the browser;
+ * sending happens from the request's Messages card.
  */
 export function ReplyDraft({
   initial,
@@ -34,7 +34,7 @@ export function ReplyDraft({
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">
-          Draft only. Edits aren&apos;t saved, and Settlix never sends messages.
+          Edits aren&apos;t saved here. To send it, use Messages on the request.
         </span>
         <div className="flex gap-2">
           {text !== initial ? (

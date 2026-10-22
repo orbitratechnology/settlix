@@ -1,4 +1,9 @@
-import { ChevronDownIcon, DatabaseIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  DatabaseIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
+} from "lucide-react"
 
 import { FactList } from "@/components/fact-list"
 import { ReconcileRefundButton } from "@/components/refunds/reconcile-refund-button"
@@ -27,6 +32,7 @@ import {
   type RefundAttemptStatus,
 } from "@/lib/domain/labels"
 import { formatDate, formatDateTime } from "@/lib/format"
+import { channelLabel } from "@/lib/intake/sources"
 import { formatMoney } from "@/lib/money/amounts"
 
 function Reference({ children }: { children: React.ReactNode }) {
@@ -101,8 +107,32 @@ export function RequestFactsCard({ detail }: { detail: CaseDetail }) {
                     ),
             },
             { label: "Received", value: formatDate(detail.created_at) },
+            {
+              label: "Came in",
+              value: channelLabel(detail.channel, detail.channel_source),
+            },
           ]}
         />
+        {detail.channel !== "dashboard" ? (
+          detail.customer_verified ? (
+            <p className="flex items-start gap-2 text-[0.9375rem]">
+              <ShieldCheckIcon
+                aria-hidden
+                className="mt-0.5 size-4 shrink-0 text-success"
+              />
+              The order number and the customer&apos;s email match this order.
+            </p>
+          ) : (
+            <p className="flex items-start gap-2 text-[0.9375rem]">
+              <ShieldAlertIcon
+                aria-hidden
+                className="mt-0.5 size-4 shrink-0 text-warning-foreground dark:text-warning"
+              />
+              The sender isn&apos;t confirmed as this order&apos;s buyer. Check
+              before refunding.
+            </p>
+          )
+        ) : null}
         {detail.supporting_details ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-[0.9375rem] font-semibold">Your notes</span>

@@ -95,3 +95,41 @@ export function mailtoHref(input: {
     .replaceAll("+", "%20")
   return `mailto:${encodeURIComponent(input.to).replace("%40", "@")}?${query}`
 }
+
+/**
+ * The starting text for a message to the customer. Once a refund was sent it
+ * states only what PayPal's records prove; before that it offers Claude's
+ * draft, which the merchant edits before sending.
+ */
+export function replyDraft(input: {
+  customerName: string
+  orderReference: string
+  refund: {
+    status: "REQUESTED" | "PENDING" | "COMPLETED" | "FAILED" | "RECOVERY_REQUIRED"
+    amount: string
+    paypalRefundId: string | null
+  } | null
+  claudeDraft: string | null
+}): string {
+  const hi = `Hi ${firstName(input.customerName)},`
+  const { refund } = input
+  if (refund?.status === "COMPLETED" && refund.paypalRefundId) {
+    return `${hi}\n\nWe've refunded ${refund.amount} for order ${input.orderReference} to the PayPal account you paid with (PayPal reference ${refund.paypalRefundId}). How soon it shows on your statement depends on your payment method.\n\nThank you for your patience.`
+  }
+  if (refund?.status === "PENDING" || refund?.status === "REQUESTED") {
+    return `${hi}\n\nWe've sent a refund of ${refund.amount} for order ${input.orderReference} to PayPal. PayPal is still processing it; we'll confirm as soon as it's complete.\n\nThank you for your patience.`
+  }
+  return input.claudeDraft?.trim() ?? ""
+}
+
+/** "Ask the customer for more", worded for the customer, from Claude's list. */
+export function evidenceRequestDraft(
+  customerName: string,
+  missing: string[],
+): string {
+  const items = missing.map((item) => item.trim()).filter(Boolean)
+  const ask = items.length
+    ? `To continue, could you send us:\n${items.map((item) => `- ${item}`).join("\n")}`
+    : "To continue, could you tell us a little more about what happened? Photos help if you have them."
+  return `Hi ${firstName(customerName)},\n\nThanks for your request. ${ask}\n\nYou can reply on your request page or to this email.`
+}

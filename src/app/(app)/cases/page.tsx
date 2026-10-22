@@ -1,10 +1,19 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import { CreditCardIcon, InboxIcon, PlusIcon } from "lucide-react"
+import {
+  CreditCardIcon,
+  InboxIcon,
+  MailIcon,
+  PlusIcon,
+  QrCodeIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 
 import { CaseInbox } from "@/components/cases/case-inbox"
+import { GmailAutoSync } from "@/components/cases/gmail-auto-sync"
 import { PageContainer, PageHeader } from "@/components/page-header"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -18,6 +27,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { parseInboxView } from "@/lib/cases/inbox"
 import { listCases } from "@/lib/data/cases"
+import { getGmailConnection } from "@/lib/gmail/client"
+import { requireMember } from "@/lib/security/auth"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
 export const metadata: Metadata = {
   title: "Refund requests",
@@ -30,16 +43,80 @@ export default function CasesPage({ searchParams }: PageProps<"/cases">) {
         title="Refund requests"
         description="Every refund a customer asked for. Open one to see what Claude found and decide."
         actions={
-          <Link href="/payments" className={buttonVariants({ size: "lg" })}>
-            <PlusIcon data-icon="inline-start" />
-            Add a request
-          </Link>
+          <>
+            <Link
+              href="/request-form"
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+            >
+              <QrCodeIcon data-icon="inline-start" />
+              Your request form
+            </Link>
+            <Link href="/payments" className={buttonVariants({ size: "lg" })}>
+              <PlusIcon data-icon="inline-start" />
+              Add a request
+            </Link>
+          </>
         }
       />
+      <Suspense fallback={null}>
+        <IntakeNotices />
+      </Suspense>
       <Suspense fallback={<CasesListSkeleton />}>
         <CasesList searchParams={searchParams} />
       </Suspense>
     </PageContainer>
+  )
+}
+
+/** Gmail needing attention, emails waiting for an order, and the background Gmail check. */
+async function IntakeNotices() {
+  const member = await requireMember()
+  const [connection, toSort] = await Promise.all([
+    getGmailConnection(createAdminClient(), member.workspace.id),
+    (await createClient())
+      .from("inbound_emails")
+      .select("id", { count: "exact", head: true })
+      .eq("merchant_id", member.workspace.id)
+      .eq("status", "to_sort"),
+  ])
+  const waiting = toSort.count ?? 0
+  if (!connection && waiting === 0) return null
+
+  return (
+    <>
+      {connection?.status === "needs_reconnect" ? (
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>Gmail needs reconnecting</AlertTitle>
+          <AlertDescription>
+            Google ended Settlix&apos;s access, so new emails aren&apos;t coming
+            in.{" "}
+            <Link href="/request-form#gmail" className="font-medium underline">
+              Reconnect Gmail
+            </Link>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {waiting > 0 ? (
+        <Alert>
+          <MailIcon />
+          <AlertTitle>
+            {waiting} email{waiting === 1 ? "" : "s"} from Gmail need
+            {waiting === 1 ? "s" : ""} an order
+          </AlertTitle>
+          <AlertDescription>
+            Settlix couldn&apos;t tell which order {waiting === 1 ? "it is" : "they are"}{" "}
+            about.{" "}
+            <Link href="/cases/emails" className="font-medium underline">
+              Sort {waiting === 1 ? "it" : "them"}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {connection?.canRead && connection.status === "active" ? (
+        <GmailAutoSync lastSyncedAt={connection.lastSyncedAt} />
+      ) : null}
+    </>
   )
 }
 

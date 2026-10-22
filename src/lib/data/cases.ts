@@ -25,7 +25,7 @@ export async function listCases(): Promise<InboxRow[]> {
     .from("cases")
     .select(
       `id, case_number, customer_display_name, claimed_issue, request_category,
-       requested_amount_minor, currency_code, status, priority, origin, created_at,
+       requested_amount_minor, currency_code, status, priority, origin, channel, created_at,
        order:orders!cases_merchant_id_order_id_fkey(external_order_reference),
        investigations:investigations!investigations_merchant_id_case_id_fkey(
          action:recommendation_json->recommendation->>proposedAction,
@@ -60,6 +60,7 @@ export async function listCases(): Promise<InboxRow[]> {
       status: row.status,
       priority: row.priority,
       origin: row.origin,
+      channel: row.channel,
       createdAt: row.created_at,
       orderReference: row.order.external_order_reference,
       latestAction: action ?? null,
@@ -92,6 +93,9 @@ export async function getCaseDetail(caseId: string) {
          id, model_provider, model_id, prompt_version, input_context_hash,
          recommendation_json, eligibility_result, policy_version_snapshot,
          created_at
+       ),
+       messages:case_messages!case_messages_merchant_id_case_id_fkey(
+         id, sender, channel, subject, body, created_at
        )`,
     )
     .eq("merchant_id", member.workspace.id)
@@ -106,6 +110,7 @@ export async function getCaseDetail(caseId: string) {
       ascending: false,
     })
     .limit(INVESTIGATION_HISTORY, { referencedTable: "investigations" })
+    .order("created_at", { referencedTable: "case_messages", ascending: true })
     .maybeSingle()
 
   if (error) throw new Error("Could not load case", { cause: error })

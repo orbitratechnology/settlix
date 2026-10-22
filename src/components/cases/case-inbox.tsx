@@ -278,6 +278,12 @@ export function CaseInbox({
   )
 }
 
+const channelNotes: Record<InboxRow["channel"], string> = {
+  dashboard: "",
+  form: ", sent through your form",
+  email: ", from Gmail",
+}
+
 function InboxItem({ row }: { row: InboxRow }) {
   const urgent = row.priority === "high" || row.priority === "urgent"
   return (
@@ -308,6 +314,7 @@ function InboxItem({ row }: { row: InboxRow }) {
           <span className="truncate text-[0.9375rem]">{row.claimedIssue}</span>
           <span className="truncate text-sm text-muted-foreground">
             {requestCategoryLabels[row.category]}, request {row.caseNumber}
+            {channelNotes[row.channel]}
           </span>
         </span>
 
