@@ -9,7 +9,8 @@ traceable Resolution Receipt.
 Built for the PayPal AI Hackathon 2026. Everything runs against the PayPal **Sandbox**: no real
 money moves.
 
-- Live demo: _added once deployed_ (sign in with the public demo account shown on the sign-in page)
+- Live demo: **https://settlix-demo.vercel.app** (sign in with the public demo account shown on
+  the sign-in page: `demo@settlix.example` / `settlix-sandbox-demo`)
 - Demo video: _added after recording_
 - Product spec: [`docs/PRD.md`](docs/PRD.md) · Build log: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 
