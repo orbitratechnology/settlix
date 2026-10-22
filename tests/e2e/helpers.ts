@@ -85,7 +85,10 @@ export async function sandboxCheckout(page: Page, itemName: string) {
   await complete.click()
   await popup.waitForEvent("close", { timeout: 60_000 })
 
-  const notice = page.getByText(/PayPal Sandbox capture \S+ completed/)
+  // The checkout notice, not the "Last sandbox operation" line that repeats it.
+  const notice = page.getByText(
+    /PayPal Sandbox capture \S+ completed\. Open a refund case/,
+  )
   await expect(notice).toBeVisible({ timeout: 60_000 })
   const captureId = (await notice.textContent())!.match(
     /capture (\S+) completed/,
