@@ -243,3 +243,53 @@ describe("error classification", () => {
     expect(calls).toHaveLength(1)
   })
 })
+
+describe("sandbox negative testing", () => {
+  const refund = {
+    captureId: "CAPTURE-123456",
+    amountMinor: 1000,
+    currency: "USD",
+    settlixRefundId: "attempt-1",
+    requestId: "key-1",
+  }
+
+  test("refuses a mock code unless test faults are on", async () => {
+    delete process.env.SETTLIX_TEST_FAULTS
+    await expect(
+      refundPayPalCapture({ ...refund, mockCode: "INTERNAL_SERVER_ERROR" }),
+    ).rejects.toThrow(/test faults/)
+    expect(calls).toHaveLength(0)
+  })
+
+  test("sends PayPal-Mock-Response only when test faults are on", async () => {
+    process.env.SETTLIX_TEST_FAULTS = "1"
+    responders.push(tokenResponse, () =>
+      json(422, {
+        name: "UNPROCESSABLE_ENTITY",
+        details: [{ issue: "REFUND_FAILED_INSUFFICIENT_FUNDS" }],
+        debug_id: "dbg",
+      }),
+    )
+    const error = await refundPayPalCapture({
+      ...refund,
+      mockCode: "REFUND_FAILED_INSUFFICIENT_FUNDS",
+    }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(PayPalError)
+    expect((error as PayPalError).issue).toBe(
+      "REFUND_FAILED_INSUFFICIENT_FUNDS",
+    )
+    expect(headersOf(calls[1]).get("PayPal-Mock-Response")).toBe(
+      '{"mock_application_codes":"REFUND_FAILED_INSUFFICIENT_FUNDS"}',
+    )
+    expect(headersOf(calls[1]).get("PayPal-Request-Id")).toBe("key-1")
+  })
+
+  test("normal refunds never carry the mock header", async () => {
+    process.env.SETTLIX_TEST_FAULTS = "1"
+    responders.push(tokenResponse, () =>
+      json(201, { id: "REFUND-1234567", status: "COMPLETED" }),
+    )
+    await refundPayPalCapture(refund)
+    expect(headersOf(calls[1]).has("PayPal-Mock-Response")).toBe(false)
+  })
+})

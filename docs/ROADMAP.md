@@ -172,7 +172,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
 - Phase 5 follow-up: merchant notes can now be added from the case page (see Phase 5 for STX-1023).
 - **Exit:** investigations on seeded cases produce valid, cited, stored recommendations. ✅
 
-## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ✅ (awaiting approval)
+## Phase 5 — Resolution workflow: inbox → approval → refund → receipt ✅
 
 - Migration `20261021194503_refund_workflow.sql`: immutable `refund_attempts.approval_snapshot`;
   `claim_refund_attempt()` (locks case + order; requires `READY_FOR_APPROVAL`, the latest
@@ -225,12 +225,48 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
     kept the result → receipt.
 - **Exit:** case → investigate → approve → genuine sandbox refund → receipt, end to end. ✅
 
-## Phase 6 — Reliability & negative paths ⬜
+## Phase 6 — Reliability & negative paths 🟡
 
-- Duplicate clicks / concurrent approvals, amount above balance, already refunded, missing mapping,
-  PayPal rejection, pending, timeout → `RECOVERY_REQUIRED` + reconcile action, AI failures,
-  rate limits, cross-merchant access.
-- Unit + integration tests; Playwright E2E for PRD §17.3 flows.
+- Migration `20261022060812_rate_limits.sql`: `consume_rate_limit()`, a per-merchant, per-action
+  fixed-window counter (`private.rate_limit_buckets`, one row per bucket, updated with
+  `insert … on conflict do update` so concurrent callers count one at a time). Limits per 15 min:
+  20 approvals, 30 reconciliations, 20 sandbox checkouts, 30 captures (investigations keep their
+  20). Over the limit: 429 with "nothing was sent to PayPal".
+- Refund service hardening (PRD §15):
+  - Duplicate approval / already refunded answers with the existing attempt (`in_progress` /
+    `already_refunded` + attempt, refund ID, status) instead of a generic error; the dialog shows
+    it with a receipt link. A request that lost the race and then looked ineligible (the winner's
+    attempt used the balance) now reports the winner's refund too.
+  - Any failure before the claim commits (database down, load errors) returns "nothing was sent to
+    PayPal"; a failed approval audit after the claim stops before PayPal (the stored request is
+    sent once by "Check with PayPal"); a failed outcome audit no longer turns a recorded refund into
+    an error. Routes return JSON for unexpected errors without claiming either outcome.
+  - The investigation's "started" audit moved inside the restore-on-failure block.
+  - Approve and reconcile buttons ignore a second click before the disabled state renders.
+  - Checkout start shows Settlix's own reason when it refuses (e.g. rate limit).
+- Test-only fault switch (`src/lib/testing/`, `SETTLIX_TEST_FAULTS=1`, never in production):
+  `ai_timeout`, `ai_invalid_output` (failing models, nothing stored), `paypal_lost_response`
+  (PayPal processes the refund, the answer is dropped), and PayPal sandbox negative testing
+  (`PayPal-Mock-Response`): `paypal_refund_declined` (REFUND_FAILED_INSUFFICIENT_FUNDS) and
+  `paypal_server_error`. Verified that negative testing is on for this sandbox account (refund
+  POST mock codes → 422 / 500 on an already refunded capture, so nothing could move).
+- Tests:
+  - Unit: fault switch guards, PayPal adapter refuses/sends `PayPal-Mock-Response` correctly.
+  - Integration (real Supabase, PayPal double via `RefundGateway`, per-run merchant so runs never
+    share rate limits or touch demo data): completed refund persisted with the stored
+    `PayPal-Request-Id` and audit order, repeat → existing refund, two concurrent approvals → one
+    PayPal call and one attempt, tampered amount / amount above balance / currency /
+    investigation → refused before any claim, rejection → FAILED + `REFUND_FAILED` with the
+    payment untouched, pending → stays pending → reconcile by refund ID → REFUNDED, unknown
+    outcome → RECOVERY_REQUIRED → duplicate refused → reconcile replays the identical request,
+    lost response → reconcile returns PayPal's original refund (HTTP 200), partial →
+    PARTIALLY_REFUNDED, other merchant / support role refused, rate limiter; investigation
+    timeout / invalid structure (incl. the fault models) restore the case and store nothing.
+  - Playwright (`bun run test:e2e`, own "Settlix E2E Store" workspace): E2E-06 and E2E-08 run
+    without external services; E2E-01/02/03/04/05/07 and the PayPal decline run live
+    (`E2E_LIVE=1`) against the real sandbox (buyer approves the popup) and Claude, and read
+    PayPal's own record back.
+- Live E2E run (E2E-01/02/05/07): in progress.
 - **Exit:** critical negative paths fail safely and preserve truthful payment state.
 
 ## Phase 7 — Dashboard, polish & submission readiness ⬜

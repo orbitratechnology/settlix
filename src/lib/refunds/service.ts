@@ -26,11 +26,24 @@ import {
   type RefundOutcome,
 } from "@/lib/refunds/outcome"
 import { can, type Member } from "@/lib/security/auth"
+import { consumeRateLimit } from "@/lib/security/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import type { Database, Json, Tables } from "@/types/database"
+import { paypalMockCodes, type TestFault } from "@/lib/testing/faults"
+import type { Database, Enums, Json, Tables } from "@/types/database"
 
 type Admin = ReturnType<typeof createAdminClient>
 type Attempt = Tables<"refund_attempts">
+
+/** The PayPal calls the refund workflow makes. Tests pass a double. */
+export type RefundGateway = {
+  refund: typeof refundPayPalCapture
+  getRefund: typeof getPayPalRefund
+}
+
+const paypalGateway: RefundGateway = {
+  refund: refundPayPalCapture,
+  getRefund: getPayPalRefund,
+}
 
 /** A REQUESTED attempt younger than this may still have its first call in flight. */
 const IN_FLIGHT_MS = 60 * 1000
@@ -39,6 +52,15 @@ export type RefundConfirmation = {
   investigationId: string
   amountMinor: number
   currencyCode: string
+}
+
+/** The refund attempt a duplicate or blocked request ran into. */
+export type ExistingAttempt = {
+  attemptId: string
+  status: Enums<"refund_attempt_status">
+  refundId: string | null
+  /** Seeded demo attempts never reached PayPal. */
+  demo: boolean
 }
 
 export type RefundResult =
@@ -57,30 +79,39 @@ export type RefundResult =
         | "changed"
         | "not_eligible"
         | "in_progress"
+        | "already_refunded"
         | "too_soon"
+        | "rate_limited"
         | "unavailable"
       message: string
+      existing?: ExistingAttempt
     }
 
+type BlockedCode = Extract<RefundResult, { status: "blocked" }>["code"]
+
 /** HTTP status for each blocked reason, used by the JSON routes. */
-export const blockedHttpStatus: Record<
-  Extract<RefundResult, { status: "blocked" }>["code"],
-  number
-> = {
+export const blockedHttpStatus: Record<BlockedCode, number> = {
   forbidden: 403,
   not_found: 404,
   not_ready: 409,
   changed: 409,
   not_eligible: 422,
   in_progress: 409,
+  already_refunded: 409,
   too_soon: 409,
+  rate_limited: 429,
   unavailable: 503,
 }
 
 const blocked = (
-  code: Extract<RefundResult, { status: "blocked" }>["code"],
+  code: BlockedCode,
   message: string,
-): RefundResult => ({ status: "blocked", code, message })
+  existing?: ExistingAttempt,
+): RefundResult => ({ status: "blocked", code, message, existing })
+
+/** Nothing reached PayPal: safe to say, and safe to try again. */
+const NOTHING_SENT =
+  "Settlix couldn't check or record this approval, so nothing was sent to PayPal. Refresh the case and try again shortly."
 
 const sha256 = (value: string) =>
   createHash("sha256").update(value).digest("hex")
@@ -132,6 +163,68 @@ async function loadUnresolvedAttempt(
 const inProgress = (status: CaseStatus) =>
   status === "REFUND_PENDING" || status === "RECOVERY_REQUIRED"
 
+const attemptStatusLabels: Record<Enums<"refund_attempt_status">, string> = {
+  REQUESTED: "sent to PayPal",
+  PENDING: "pending at PayPal",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  RECOVERY_REQUIRED: "waiting for reconciliation",
+}
+
+/**
+ * PRD §15 duplicate approval / already refunded: answer with the attempt that
+ * already exists instead of starting another one.
+ */
+async function existingAttemptResult(
+  admin: Admin,
+  merchantId: string,
+  caseId: string,
+  caseStatus: CaseStatus,
+): Promise<RefundResult> {
+  const { data, error } = await admin
+    .from("refund_attempts")
+    .select(
+      "id, status, paypal_refund_id, approved_amount_minor, currency_code, origin",
+    )
+    .eq("merchant_id", merchantId)
+    .eq("case_id", caseId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error("Could not load the refund", { cause: error })
+
+  const existing: ExistingAttempt | undefined = data
+    ? {
+        attemptId: data.id,
+        status: data.status,
+        refundId: data.paypal_refund_id,
+        demo: data.origin === "seed",
+      }
+    : undefined
+  const amount = data
+    ? formatMoney(data.approved_amount_minor, data.currency_code)
+    : null
+
+  if (caseStatus === "REFUNDED") {
+    return blocked(
+      "already_refunded",
+      existing?.demo
+        ? "This demo case is already marked as refunded (demo data: no PayPal refund was made). No new refund was sent."
+        : existing?.refundId
+          ? `This case was already refunded: PayPal refund ${existing.refundId} for ${amount} completed. No new refund was sent.`
+          : "This case has already been refunded. No new refund was sent.",
+      existing,
+    )
+  }
+  return blocked(
+    "in_progress",
+    existing && amount
+      ? `A ${amount} refund for this case is already ${attemptStatusLabels[existing.status]}. No new refund was sent; check its status instead of approving again.`
+      : "A refund for this case is already being processed. No new refund was sent; check its status instead of approving again.",
+    existing,
+  )
+}
+
 /**
  * PRD §13 POST /api/cases/[caseId]/approve-and-refund. The browser's amount is
  * only a confirmation: the server re-runs eligibility on current records, and
@@ -142,27 +235,141 @@ export async function approveAndRefund(
   member: Member,
   caseId: string,
   confirmation: RefundConfirmation,
+  options: { testFault?: TestFault | null; paypal?: RefundGateway } = {},
 ): Promise<RefundResult> {
+  const paypal = options.paypal ?? paypalGateway
   if (!can.approveRefunds(member.role)) {
     return blocked("forbidden", "Your role can't approve refunds.")
   }
   const merchantId = member.workspace.id
   const admin = createAdminClient()
 
+  // Until the claim commits, any failure leaves PayPal untouched.
+  let claimed: Claimed
+  try {
+    const result = await checkAndClaim(admin, member, caseId, confirmation)
+    if ("status" in result) return result
+    claimed = result
+  } catch (error) {
+    console.error("Refund approval failed before PayPal", {
+      caseId,
+      reason: error instanceof Error ? error.message : "unknown",
+    })
+    return blocked("unavailable", NOTHING_SENT)
+  }
+  const { attempt, requestInput, idempotencyKey, money, investigationId } =
+    claimed
+
+  try {
+    await recordAuditEvent(admin, {
+      merchantId,
+      caseId,
+      actor: { type: "user", id: member.userId },
+      eventType: "refund.approved",
+      summary: `Approved a ${money} refund to the buyer's PayPal account. Refund attempt recorded before calling PayPal.`,
+      metadata: {
+        attempt_id: attempt.id,
+        investigation_id: investigationId,
+        amount_minor: requestInput.amountMinor,
+        currency: requestInput.currency,
+        paypal_capture_id: requestInput.captureId,
+      },
+    })
+  } catch {
+    // The approval is stored on the attempt, but without its audit event the
+    // refund is not sent. "Check with PayPal" sends this same request later.
+    console.error("Could not record the approval event", {
+      attemptId: attempt.id,
+    })
+    return blocked(
+      "unavailable",
+      `Your approval was saved, but Settlix couldn't finish its audit trail, so the refund wasn't sent to PayPal. In a minute, use "Check with PayPal" on the case to send this same request once.`,
+      {
+        attemptId: attempt.id,
+        status: attempt.status,
+        refundId: null,
+        demo: false,
+      },
+    )
+  }
+
+  let outcome: RefundOutcome
+  try {
+    const { httpStatus, refund } = await paypal.refund({
+      ...requestInput,
+      requestId: idempotencyKey,
+      mockCode: options.testFault
+        ? paypalMockCodes[options.testFault]
+        : undefined,
+    })
+    if (options.testFault === "paypal_lost_response") {
+      // Test fault: PayPal processed the refund, but its answer is dropped.
+      throw new PayPalError(
+        "unknown",
+        undefined,
+        undefined,
+        [],
+        undefined,
+        "Test fault: refund response dropped",
+      )
+    }
+    outcome = outcomeFromRefund(
+      {
+        attemptId: attempt.id,
+        amountMinor: requestInput.amountMinor,
+        currency: requestInput.currency,
+      },
+      httpStatus,
+      refund,
+    )
+  } catch (error) {
+    if (error instanceof PayPalError) {
+      console.error("PayPal refund failed", {
+        attemptId: attempt.id,
+        ...error.toLogObject(),
+      })
+    }
+    outcome = outcomeFromError(error)
+  }
+
+  return applyOutcome(admin, merchantId, caseId, attempt, outcome, "refund")
+}
+
+type Claimed = {
+  attempt: Attempt
+  requestInput: RefundRequestInput
+  idempotencyKey: string
+  investigationId: string
+  money: string
+}
+
+/**
+ * Everything before PayPal: re-checks the case, the latest investigation, and
+ * eligibility on current records, then claims the attempt in Postgres. Returns
+ * a blocked result, or the committed attempt to send.
+ */
+async function checkAndClaim(
+  admin: Admin,
+  member: Member,
+  caseId: string,
+  confirmation: RefundConfirmation,
+): Promise<RefundResult | Claimed> {
+  const merchantId = member.workspace.id
   const row = await loadCase(admin, merchantId, caseId)
   if (!row) return blocked("not_found", "Case not found.")
-  if (inProgress(row.status)) {
-    return blocked(
-      "in_progress",
-      "A refund for this case is already being processed. Check its status instead of approving again.",
-    )
+  if (inProgress(row.status) || row.status === "REFUNDED") {
+    return existingAttemptResult(admin, merchantId, caseId, row.status)
   }
   if (row.status !== "READY_FOR_APPROVAL") {
     return blocked(
       "not_ready",
-      row.status === "REFUNDED"
-        ? "This case has already been refunded."
-        : "Only a case that is ready for approval can be refunded.",
+      "Only a case that is ready for approval can be refunded.",
+    )
+  }
+  if (!(await consumeRateLimit(admin, merchantId, "refund.approve"))) {
+    return blocked(
+      "rate_limited",
+      "This workspace has approved many refunds in the last 15 minutes. Nothing was sent to PayPal; wait a few minutes and try again.",
     )
   }
 
@@ -209,6 +416,15 @@ export async function approveAndRefund(
     eligibility.approvableAmountMinor === null ||
     !context.order.paypalCaptureId
   ) {
+    // A concurrent approval that won the claim makes this one look ineligible
+    // (its attempt uses up the balance): report that refund instead.
+    const current = await loadCase(admin, merchantId, caseId)
+    if (
+      current &&
+      (inProgress(current.status) || current.status === "REFUNDED")
+    ) {
+      return existingAttemptResult(admin, merchantId, caseId, current.status)
+    }
     await recordAuditEvent(admin, {
       merchantId,
       caseId,
@@ -277,11 +493,9 @@ export async function approveAndRefund(
     if (reason.includes("case_not_ready")) {
       // Most often a duplicate click that lost the race to the first one.
       const current = await loadCase(admin, merchantId, caseId)
-      return current && inProgress(current.status)
-        ? blocked(
-            "in_progress",
-            "This refund is already being processed. Check its status instead of approving again.",
-          )
+      return current &&
+        (inProgress(current.status) || current.status === "REFUNDED")
+        ? existingAttemptResult(admin, merchantId, caseId, current.status)
         : blocked(
             "changed",
             "The case changed while you were approving. Refresh and review it again.",
@@ -313,44 +527,13 @@ export async function approveAndRefund(
     throw new Error("Could not record the approval", { cause: claimError })
   }
 
-  await recordAuditEvent(admin, {
-    merchantId,
-    caseId,
-    actor: { type: "user", id: member.userId },
-    eventType: "refund.approved",
-    summary: `Approved a ${money(amountMinor)} refund to the buyer's PayPal account. Refund attempt recorded before calling PayPal.`,
-    metadata: {
-      attempt_id: attempt.id,
-      investigation_id: latest.id,
-      amount_minor: amountMinor,
-      currency,
-      paypal_capture_id: requestInput.captureId,
-      context_hash: currentHash,
-    },
-  })
-
-  let outcome: RefundOutcome
-  try {
-    const { httpStatus, refund } = await refundPayPalCapture({
-      ...requestInput,
-      requestId: idempotencyKey,
-    })
-    outcome = outcomeFromRefund(
-      { attemptId: attempt.id, amountMinor, currency },
-      httpStatus,
-      refund,
-    )
-  } catch (error) {
-    if (error instanceof PayPalError) {
-      console.error("PayPal refund failed", {
-        attemptId: attempt.id,
-        ...error.toLogObject(),
-      })
-    }
-    outcome = outcomeFromError(error)
+  return {
+    attempt,
+    requestInput,
+    idempotencyKey,
+    investigationId: latest.id,
+    money: money(amountMinor),
   }
-
-  return applyOutcome(admin, merchantId, caseId, attempt, outcome, "refund")
 }
 
 /**
@@ -361,26 +544,47 @@ export async function approveAndRefund(
 export async function reconcileRefund(
   member: Member,
   caseId: string,
+  options: { paypal?: RefundGateway } = {},
 ): Promise<RefundResult> {
+  const paypal = options.paypal ?? paypalGateway
   if (!can.approveRefunds(member.role)) {
     return blocked("forbidden", "Your role can't manage refunds.")
   }
   const merchantId = member.workspace.id
   const admin = createAdminClient()
 
-  const row = await loadCase(admin, merchantId, caseId)
-  if (!row) return blocked("not_found", "Case not found.")
-  const attempt = await loadUnresolvedAttempt(admin, merchantId, caseId)
-  if (!attempt || !attempt.capture_id) {
-    return blocked("not_ready", "There is no unresolved refund to check.")
-  }
-  if (
-    attempt.status === "REQUESTED" &&
-    Date.now() - Date.parse(attempt.created_at) < IN_FLIGHT_MS
-  ) {
+  let attempt: Attempt
+  try {
+    const row = await loadCase(admin, merchantId, caseId)
+    if (!row) return blocked("not_found", "Case not found.")
+    const unresolved = await loadUnresolvedAttempt(admin, merchantId, caseId)
+    if (!unresolved || !unresolved.capture_id) {
+      return blocked("not_ready", "There is no unresolved refund to check.")
+    }
+    if (
+      unresolved.status === "REQUESTED" &&
+      Date.now() - Date.parse(unresolved.created_at) < IN_FLIGHT_MS
+    ) {
+      return blocked(
+        "too_soon",
+        "The refund request was just sent. Check again in a minute.",
+      )
+    }
+    if (!(await consumeRateLimit(admin, merchantId, "refund.reconcile"))) {
+      return blocked(
+        "rate_limited",
+        "This workspace has checked refunds with PayPal many times in the last 15 minutes. Wait a few minutes and try again.",
+      )
+    }
+    attempt = unresolved
+  } catch (error) {
+    console.error("Refund reconciliation failed before PayPal", {
+      caseId,
+      reason: error instanceof Error ? error.message : "unknown",
+    })
     return blocked(
-      "too_soon",
-      "The refund request was just sent. Check again in a minute.",
+      "unavailable",
+      "Settlix couldn't load this refund, so PayPal wasn't contacted. The refund status is unchanged; try again shortly.",
     )
   }
 
@@ -393,7 +597,7 @@ export async function reconcileRefund(
   let outcome: RefundOutcome
   if (attempt.paypal_refund_id) {
     try {
-      const refund = await getPayPalRefund(attempt.paypal_refund_id)
+      const refund = await paypal.getRefund(attempt.paypal_refund_id)
       outcome = outcomeFromRefund(expected, 200, refund)
     } catch (error) {
       return blocked(
@@ -412,7 +616,7 @@ export async function reconcileRefund(
       )
     }
     try {
-      const { httpStatus, refund } = await refundPayPalCapture({
+      const { httpStatus, refund } = await paypal.refund({
         ...input,
         requestId: attempt.idempotency_key,
       })
@@ -495,6 +699,8 @@ async function applyOutcome(
     }
   }
 
+  // The outcome is already stored; a missing audit row must not turn a
+  // recorded refund into an error for the merchant.
   await recordAuditEvent(admin, {
     merchantId,
     caseId,
@@ -512,6 +718,11 @@ async function applyOutcome(
       paypal_debug_id: outcome.debugId,
       source,
     },
+  }).catch(() => {
+    console.error("Could not record the refund outcome event", {
+      attemptId: attempt.id,
+      status: outcome.status,
+    })
   })
 
   return {

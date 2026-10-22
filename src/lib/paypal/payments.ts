@@ -45,13 +45,14 @@ export function refundRequest(input: RefundRequestInput) {
  * Only `refund.status === "COMPLETED"` means money was returned.
  */
 export async function refundPayPalCapture(
-  input: RefundRequestInput & { requestId: string },
+  input: RefundRequestInput & { requestId: string; mockCode?: string },
 ): Promise<{ httpStatus: number; refund: PayPalRefund }> {
   const { path, body } = refundRequest(input)
   const { status, data } = await paypalRequest<PayPalRefund>("POST", path, {
     requestId: input.requestId,
     representation: true,
     body,
+    mockCode: input.mockCode,
   })
   return { httpStatus: status, refund: data }
 }

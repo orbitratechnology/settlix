@@ -22,8 +22,21 @@ export async function POST(
     return jsonError(404, "not_found", "Case not found.")
   }
 
-  const result = await reconcileRefund(auth.member, caseId)
-  return NextResponse.json(result, {
-    status: result.status === "blocked" ? blockedHttpStatus[result.code] : 200,
-  })
+  try {
+    const result = await reconcileRefund(auth.member, caseId)
+    return NextResponse.json(result, {
+      status:
+        result.status === "blocked" ? blockedHttpStatus[result.code] : 200,
+    })
+  } catch (error) {
+    console.error("reconcile_refund_failed", {
+      caseId,
+      reason: error instanceof Error ? error.message : "unknown",
+    })
+    return jsonError(
+      500,
+      "internal_error",
+      "Something went wrong while checking with PayPal. Refresh the case to see its current state.",
+    )
+  }
 }

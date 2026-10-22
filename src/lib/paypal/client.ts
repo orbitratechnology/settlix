@@ -1,5 +1,7 @@
 import "server-only"
 
+import { testFaultsEnabled } from "@/lib/testing/faults"
+
 import { classifyFailure, PayPalError } from "./errors"
 
 /** Settlix is sandbox-only; any other base URL is refused. */
@@ -138,6 +140,11 @@ export type CallOptions = {
   /** Prefer: return=representation */
   representation?: boolean
   timeoutMs?: number
+  /**
+   * Sandbox negative-testing code sent as PayPal-Mock-Response. Test faults
+   * only (SETTLIX_TEST_FAULTS=1 outside production); refused otherwise.
+   */
+  mockCode?: string
 }
 
 export async function paypalRequest<T>(
@@ -147,6 +154,9 @@ export async function paypalRequest<T>(
 ): Promise<{ status: number; data: T }> {
   // Checked before any network call so a misconfiguration is never mistaken for an outage.
   const baseUrl = paypalBaseUrl()
+  if (options.mockCode && !testFaultsEnabled()) {
+    throw new Error("PayPal-Mock-Response is only allowed with test faults on")
+  }
   const payload =
     options.body === undefined ? undefined : JSON.stringify(options.body)
 
@@ -158,6 +168,11 @@ export async function paypalRequest<T>(
     if (payload !== undefined) headers["Content-Type"] = "application/json"
     if (options.requestId) headers["PayPal-Request-Id"] = options.requestId
     if (options.representation) headers.Prefer = "return=representation"
+    if (options.mockCode) {
+      headers["PayPal-Mock-Response"] = JSON.stringify({
+        mock_application_codes: options.mockCode,
+      })
+    }
     return fetch(`${baseUrl}${path}`, {
       method,
       headers,

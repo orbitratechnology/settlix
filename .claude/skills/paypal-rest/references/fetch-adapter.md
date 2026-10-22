@@ -11,7 +11,7 @@ Env (server):
 - `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` (sandbox REST app).
 - `PAYPAL_WEBHOOK_ID`.
 - `PAYPAL_BASE_URL`, optional, and it must equal `https://api-m.sandbox.paypal.com`.
-- `PAYPAL_NEGATIVE_TESTING=1`, dev only, to allow mock codes.
+- `SETTLIX_TEST_FAULTS=1` (non-production only) to allow mock codes. See `sandbox-testing.md`.
 
 Env (browser): `NEXT_PUBLIC_PAYPAL_CLIENT_ID` only.
 
@@ -186,8 +186,8 @@ interface CallOptions {
 }
 
 async function call<T>(method: "GET" | "POST", path: string, opts: CallOptions = {}): Promise<{ status: number; data: T }> {
-  if (opts.mockCode && process.env.PAYPAL_NEGATIVE_TESTING !== "1") {
-    throw new Error("PayPal-Mock-Response requires PAYPAL_NEGATIVE_TESTING=1");
+  if (opts.mockCode && !testFaultsEnabled()) {
+    throw new Error("PayPal-Mock-Response is only allowed with test faults on");
   }
   const payload = opts.rawJson ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
 

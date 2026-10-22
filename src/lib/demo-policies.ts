@@ -121,3 +121,26 @@ export const standardPolicyV2Clauses: DemoClause[] = [
       "A merchant must manually review refund requests above $500, a customer's third refund request within 90 days, and any request where the customer's statements conflict with order or tracking records.",
   },
 ]
+
+/**
+ * Clauses for payments that are only minutes old (the live sandbox flow): the
+ * cancellation clause matches CN-1 that the demo merchant added in policy v3,
+ * and the price adjustment clause gives the E2E suite a partial refund.
+ */
+export const cancellationClause: DemoClause = {
+  clause_key: "CN-1",
+  clause_type: "full_refund",
+  position: 12,
+  title: "Cancellation before dispatch",
+  content:
+    "If the customer asks to cancel an order before it has been dispatched and the order has not left our stock, the customer is eligible for a full refund of the amount paid. No return is needed because the item never shipped.",
+}
+
+export const priceAdjustmentClause: DemoClause = {
+  clause_key: "PA-1",
+  clause_type: "partial_refund",
+  position: 13,
+  title: "Price adjustment",
+  content:
+    "If we lower an item's price within 7 days after the customer's payment was captured, the customer can ask us to refund the difference between the price paid and the new price. The customer keeps the item and nothing needs to be returned.",
+}

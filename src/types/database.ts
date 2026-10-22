@@ -579,6 +579,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consume_rate_limit: {
+        Args: {
+          p_action: string
+          p_limit: number
+          p_merchant_id: string
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       record_refund_outcome: {
         Args: {
           p_attempt_id: string

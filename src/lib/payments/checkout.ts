@@ -18,6 +18,7 @@ import {
 } from "@/lib/paypal/orders"
 import { getPayPalCapture } from "@/lib/paypal/payments"
 import type { Member } from "@/lib/security/auth"
+import { consumeRateLimit } from "@/lib/security/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Tables } from "@/types/database"
 
@@ -47,6 +48,15 @@ export async function startSandboxCheckout(member: Member, itemId: string) {
   if (item.currency !== member.workspace.defaultCurrency) {
     throw new CheckoutError("Item currency does not match the workspace.")
   }
+  const admin = createAdminClient()
+  if (
+    !(await consumeRateLimit(admin, member.workspace.id, "checkout.create"))
+  ) {
+    throw new CheckoutError(
+      "This workspace has started many sandbox checkouts in the last 15 minutes. Try again in a few minutes.",
+      "rate_limited",
+    )
+  }
 
   const settlixOrderId = randomUUID()
   const paypalOrder = await createPayPalOrder({
@@ -60,7 +70,6 @@ export async function startSandboxCheckout(member: Member, itemId: string) {
     throw new CheckoutError("PayPal returned an unexpected order ID.")
   }
 
-  const admin = createAdminClient()
   const { error } = await admin.from("orders").insert({
     id: settlixOrderId,
     merchant_id: member.workspace.id,
@@ -221,6 +230,19 @@ export async function captureSandboxCheckout(
   if (order.paypal_capture_id && order.payment_state === "CAPTURED") {
     return { status: "captured", captureId: order.paypal_capture_id }
   }
+  if (
+    !(await consumeRateLimit(
+      createAdminClient(),
+      member.workspace.id,
+      "checkout.capture",
+    ))
+  ) {
+    return {
+      status: "error",
+      message:
+        "Too many capture attempts in the last 15 minutes. Wait a few minutes, then use Check status on the payment.",
+    }
+  }
 
   const requestId = await ensureCaptureRequestId(order)
   let result: CaptureResult
@@ -358,4 +380,12 @@ export async function refreshSandboxPayment(
   }
 }
 
-export class CheckoutError extends Error {}
+export class CheckoutError extends Error {
+  constructor(
+    message: string,
+    readonly code: "invalid_request" | "rate_limited" = "invalid_request",
+  ) {
+    super(message)
+    this.name = "CheckoutError"
+  }
+}

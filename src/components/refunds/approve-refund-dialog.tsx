@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -45,9 +45,15 @@ export type ApprovalDetails = {
   explanation: string
 }
 
+type ResultDisplay = {
+  title: string
+  icon: typeof BadgeCheckIcon
+  destructive: boolean
+}
+
 const resultDisplay: Record<
-  RefundResult["status"],
-  { title: string; icon: typeof BadgeCheckIcon; destructive: boolean }
+  Exclude<RefundResult["status"], "blocked">,
+  ResultDisplay
 > = {
   completed: {
     title: "Refund completed",
@@ -65,11 +71,30 @@ const resultDisplay: Record<
     icon: ShieldAlertIcon,
     destructive: true,
   },
-  blocked: {
+}
+
+function displayFor(result: RefundResult): ResultDisplay {
+  if (result.status !== "blocked") return resultDisplay[result.status]
+  // A duplicate request reports the refund that already exists.
+  if (result.code === "already_refunded") {
+    return {
+      title: "Already refunded",
+      icon: BadgeCheckIcon,
+      destructive: false,
+    }
+  }
+  if (result.code === "in_progress") {
+    return {
+      title: "Refund already in progress",
+      icon: ClockIcon,
+      destructive: false,
+    }
+  }
+  return {
     title: "Refund not issued",
     icon: CircleAlertIcon,
     destructive: true,
-  },
+  }
 }
 
 /**
@@ -81,8 +106,12 @@ export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<RefundResult | null>(null)
+  // Blocks a second submit before the disabled state renders (double click).
+  const inFlight = useRef(false)
 
   function approve() {
+    if (inFlight.current) return
+    inFlight.current = true
     startTransition(async () => {
       let next: RefundResult
       try {
@@ -120,10 +149,11 @@ export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
       // unmount this dialog (the case is no longer approvable) and hide the
       // result.
       setResult(next)
+      inFlight.current = false
     })
   }
 
-  const display = result ? resultDisplay[result.status] : null
+  const display = result ? displayFor(result) : null
   const Icon = display?.icon
 
   return (
@@ -202,7 +232,7 @@ export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
           {result ? (
             <>
               <AlertDialogCancel>Close</AlertDialogCancel>
-              {result.status !== "blocked" ? (
+              {result.status !== "blocked" || result.existing ? (
                 <Link
                   href={`/receipts/${details.caseId}`}
                   className={buttonVariants()}

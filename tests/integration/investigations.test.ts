@@ -1,65 +1,30 @@
 /**
  * Investigation service against the real Supabase project with a mock model
  * (no Claude call): the claim, the append-only investigation row, case status
- * transitions, audit events, failure recovery, and merchant scoping.
+ * transitions, audit events, failure recovery (PRD §15 Claude timeout and
+ * invalid structure, E2E-06), and merchant scoping.
  *
- * Runs on the isolation merchant's case so demo data is untouched. Investigations
- * and audit events are append-only, so each run adds a few rows there. Requires
- * the seed data; skipped without NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY.
+ * Runs on a per-run test merchant (see ./fixtures), so demo data is untouched
+ * and runs don't share the investigation rate limit. Investigations and audit
+ * events are append-only, so each run leaves a few rows there. Skipped without
+ * NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY.
  */
 import { beforeAll, describe, expect, test } from "bun:test"
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { MockLanguageModelV4 } from "ai/test"
 
 import { PROMPT_VERSION } from "@/lib/ai/prompts"
 import type { ResolutionRecommendation } from "@/lib/ai/schemas"
 import type { Member } from "@/lib/security/auth"
-import type { Database } from "@/types/database"
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const secretKey = process.env.SUPABASE_SECRET_KEY
-const configured = Boolean(url && secretKey)
-
-const ISOLATION_MERCHANT_ID = "5eed0000-0000-4000-8000-000100000002"
-const ISOLATION_POLICY_ID = "5eed0000-0000-4000-8000-000200000009"
-const ISOLATION_CASE_ID = "5eed0000-0000-4000-8000-000500000901"
-const DEMO_CASE_ID = "5eed0000-0000-4000-8000-000500000001"
-
-const member: Member = {
-  userId: crypto.randomUUID(),
-  email: null,
-  role: "admin",
-  workspace: {
-    id: ISOLATION_MERCHANT_ID,
-    name: "Isolation Test Merchant",
-    slug: "isolation-test",
-    isDemo: true,
-    defaultCurrency: "USD",
-  },
-}
-
-const recommendation: ResolutionRecommendation = {
-  summary: "Isolation check case with no clear claim.",
-  extractedFacts: [],
-  proposedAction: "manual_review",
-  proposedAmountMinor: null,
-  currencyCode: null,
-  policyCitations: [
-    {
-      policyId: ISOLATION_POLICY_ID,
-      policyVersion: 1,
-      clauseKey: "RW-1",
-      supportingQuote: "Isolation merchant clause.",
-      explanation: "The only clause available.",
-    },
-  ],
-  evidenceFor: [],
-  evidenceMissing: [],
-  contradictions: [],
-  riskFlags: [],
-  explanation: "Nothing in the case supports a refund decision.",
-  suggestedCustomerReply: "Thanks for your message. We're looking into it.",
-}
+import {
+  adminClient,
+  createTestCase,
+  createTestMerchant,
+  DEMO_CASE_ID,
+  FULL_REFUND_CLAUSE,
+  integrationConfigured,
+  type TestDb,
+} from "./fixtures"
 
 function mockModel(text: string) {
   return {
@@ -84,29 +49,62 @@ function mockModel(text: string) {
   }
 }
 
-describe.skipIf(!configured)("investigation service", () => {
-  let db: SupabaseClient<Database>
+describe.skipIf(!integrationConfigured)("investigation service", () => {
+  let db: TestDb
   let investigateCase: typeof import("@/lib/investigations/service").investigateCase
+  let faultModel: typeof import("@/lib/testing/fault-models").faultModel
+  let member: Member
+  let merchantId: string
+  let recommendation: ResolutionRecommendation
 
   beforeAll(async () => {
-    db = createClient<Database>(url!, secretKey!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    db = adminClient()
     ;({ investigateCase } = await import("@/lib/investigations/service"))
+    ;({ faultModel } = await import("@/lib/testing/fault-models"))
+    const merchant = await createTestMerchant(db)
+    ;({ member, merchantId } = merchant)
+    recommendation = {
+      summary: "Test case with no clear claim.",
+      extractedFacts: [],
+      proposedAction: "manual_review",
+      proposedAmountMinor: null,
+      currencyCode: null,
+      policyCitations: [
+        {
+          policyId: merchant.policyId,
+          policyVersion: 1,
+          clauseKey: "RF-1",
+          supportingQuote: FULL_REFUND_CLAUSE,
+          explanation: "The only refund clause available.",
+        },
+      ],
+      evidenceFor: [],
+      evidenceMissing: [],
+      contradictions: [],
+      riskFlags: [],
+      explanation: "Nothing in the case supports a refund decision yet.",
+      suggestedCustomerReply: "Thanks for your message. We're looking into it.",
+    }
   })
 
-  const caseStatus = async () =>
+  const caseStatus = async (caseId: string) =>
+    (await db.from("cases").select("status").eq("id", caseId).single()).data
+      ?.status
+
+  const eventsSince = async (caseId: string, since: string) =>
     (
       await db
-        .from("cases")
-        .select("status")
-        .eq("id", ISOLATION_CASE_ID)
-        .single()
-    ).data?.status
+        .from("audit_events")
+        .select("event_type, actor_type")
+        .eq("case_id", caseId)
+        .gte("created_at", since)
+        .order("created_at")
+    ).data!
 
   test("stores a validated investigation and moves the case to its outcome", async () => {
+    const { caseId } = await createTestCase(db, merchantId)
     const started = new Date().toISOString()
-    const result = await investigateCase(member, ISOLATION_CASE_ID, {
+    const result = await investigateCase(member, caseId, {
       model: mockModel(JSON.stringify(recommendation)),
     })
     expect(result).toMatchObject({
@@ -121,7 +119,7 @@ describe.skipIf(!configured)("investigation service", () => {
       .select("*")
       .eq("id", result.investigationId)
       .single()
-    expect(row?.merchant_id).toBe(ISOLATION_MERCHANT_ID)
+    expect(row?.merchant_id).toBe(merchantId)
     expect(row?.prompt_version).toBe(PROMPT_VERSION)
     expect(row?.model_id).toBe("mock-model")
     expect(row?.input_context_hash).toMatch(/^[a-f0-9]{64}$/)
@@ -129,50 +127,62 @@ describe.skipIf(!configured)("investigation service", () => {
       citations: Array<{ valid: boolean }>
     }
     expect(stored.citations[0].valid).toBe(true)
-    expect(await caseStatus()).toBe("NEEDS_REVIEW")
+    expect(await caseStatus(caseId)).toBe("NEEDS_REVIEW")
 
-    const { data: events } = await db
-      .from("audit_events")
-      .select("event_type, actor_type")
-      .eq("case_id", ISOLATION_CASE_ID)
-      .gte("created_at", started)
-      .order("created_at")
-    expect(events?.map((e) => e.event_type)).toEqual([
+    const events = await eventsSince(caseId, started)
+    expect(events.map((e) => e.event_type)).toEqual([
       "investigation.started",
       "investigation.completed",
     ])
-    expect(events?.[1].actor_type).toBe("ai")
+    expect(events[1].actor_type).toBe("ai")
   })
 
-  test("an invalid model answer is discarded and the case is restored", async () => {
-    const before = await caseStatus()
-    const started = new Date().toISOString()
-    const result = await investigateCase(member, ISOLATION_CASE_ID, {
-      model: mockModel('{"proposedAction":"full_refund"}'),
-    })
-    expect(result).toMatchObject({
-      status: "error",
-      code: "ai_failed",
-      aiFailure: "invalid_output",
-    })
-    expect(await caseStatus()).toBe(before)
+  // §15 "Invalid AI structure" and "Claude timeout"; E2E-06 uses the same
+  // fault models through the API.
+  for (const failure of [
+    {
+      name: "an invalid model answer",
+      model: () => mockModel('{"proposedAction":"full_refund"}'),
+      kind: "invalid_output",
+    },
+    {
+      name: "the ai_invalid_output test fault",
+      model: () => faultModel("ai_invalid_output"),
+      kind: "invalid_output",
+    },
+    {
+      name: "the ai_timeout test fault",
+      model: () => faultModel("ai_timeout"),
+      kind: "timeout",
+    },
+  ]) {
+    test(`${failure.name} is discarded and the case is restored`, async () => {
+      const { caseId } = await createTestCase(db, merchantId)
+      const started = new Date().toISOString()
+      const result = await investigateCase(member, caseId, {
+        model: failure.model(),
+      })
+      expect(result).toMatchObject({
+        status: "error",
+        code: "ai_failed",
+        aiFailure: failure.kind,
+      })
+      expect(await caseStatus(caseId)).toBe("NEW")
+      expect(
+        (await eventsSince(caseId, started)).map((e) => e.event_type),
+      ).toEqual(["investigation.started", "investigation.failed"])
 
-    const { data: events } = await db
-      .from("audit_events")
-      .select("event_type")
-      .eq("case_id", ISOLATION_CASE_ID)
-      .gte("created_at", started)
-      .order("created_at")
-    expect(events?.map((e) => e.event_type)).toEqual([
-      "investigation.started",
-      "investigation.failed",
-    ])
-    const { count } = await db
-      .from("refund_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("case_id", ISOLATION_CASE_ID)
-    expect(count).toBe(0)
-  })
+      const { count: investigations } = await db
+        .from("investigations")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", caseId)
+      const { count: attempts } = await db
+        .from("refund_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("case_id", caseId)
+      expect([investigations, attempts]).toEqual([0, 0])
+    })
+  }
 
   test("another merchant's case is not found", async () => {
     const result = await investigateCase(member, DEMO_CASE_ID, {

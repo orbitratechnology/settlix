@@ -178,16 +178,17 @@ export async function investigateCase(
 
   const previousStatus: CaseStatus = staleRun ? "NEEDS_REVIEW" : row.status
   const actor = { type: "user" as const, id: member.userId }
-  await recordAuditEvent(admin, {
-    merchantId,
-    caseId,
-    actor,
-    eventType: "investigation.started",
-    summary: `Investigation started for ${row.case_number}.`,
-    metadata: { prompt_version: PROMPT_VERSION, model_id: handle.modelId },
-  })
 
+  // Everything after the claim restores the case if it fails.
   try {
+    await recordAuditEvent(admin, {
+      merchantId,
+      caseId,
+      actor,
+      eventType: "investigation.started",
+      summary: `Investigation started for ${row.case_number}.`,
+      metadata: { prompt_version: PROMPT_VERSION, model_id: handle.modelId },
+    })
     const context = await loadInvestigationContext(admin, merchantId, row)
     const run = await runInvestigationModel({
       model: handle.model,

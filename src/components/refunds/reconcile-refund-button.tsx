@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCwIcon } from "lucide-react"
 
@@ -16,6 +16,7 @@ export function ReconcileRefundButton({ caseId }: { caseId: string }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
+  const inFlight = useRef(false)
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -24,7 +25,9 @@ export function ReconcileRefundButton({ caseId }: { caseId: string }) {
         variant="outline"
         className="w-fit"
         disabled={pending}
-        onClick={() =>
+        onClick={() => {
+          if (inFlight.current) return
+          inFlight.current = true
           startTransition(async () => {
             try {
               const response = await fetch(
@@ -39,9 +42,10 @@ export function ReconcileRefundButton({ caseId }: { caseId: string }) {
             } catch {
               setMessage("Settlix couldn't be reached. Try again.")
             }
+            inFlight.current = false
             router.refresh()
           })
-        }
+        }}
       >
         {pending ? (
           <Spinner data-icon="inline-start" />

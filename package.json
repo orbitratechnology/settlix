@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "db:seed": "bun run scripts/seed.ts",
     "paypal:smoke": "bun --conditions=react-server scripts/paypal-sandbox-smoke.ts",
-    "ai:eval": "bun --conditions=react-server scripts/ai-eval.ts"
+    "ai:eval": "bun --conditions=react-server scripts/ai-eval.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.85",
@@ -36,6 +37,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/turbopack": "^4",
     "@types/bun": "^1.4.3",
     "@types/node": "^20",

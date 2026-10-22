@@ -30,7 +30,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ orderId: paypalOrderId }, { status: 201 })
   } catch (error) {
     if (error instanceof CheckoutError) {
-      return jsonError(400, "invalid_request", error.message)
+      return jsonError(
+        error.code === "rate_limited" ? 429 : 400,
+        error.code,
+        error.message,
+      )
     }
     if (error instanceof PayPalError) {
       console.error("paypal_create_order_failed", error.toLogObject())

@@ -17,7 +17,16 @@ Hackathon 2026.
 - `bun run build` — production build (must pass at the end of each phase)
 - `bun run format` — Prettier (with Tailwind class sorting); `src/components/ui/` is left as generated
 - `bun test` — unit tests (`*.test.ts`, Bun test runner); `tests/integration/` runs against the real
-  Supabase project (skipped without env) and needs the seed data
+  Supabase project (skipped without env) and needs the seed data. Writing integration tests create
+  their own merchant per run (`tests/integration/fixtures.ts`, "Integration test run …", fake
+  `TEST…` PayPal IDs) and pass a PayPal double through the refund service's `RefundGateway`.
+- `bun run test:e2e [spec]` — Playwright suite for PRD §17.3 (`tests/e2e/*.e2e.ts`, pinned to
+  `@playwright/test` 1.56.1 = the preinstalled Chromium 1194). It starts `next dev` with
+  `SETTLIX_TEST_FAULTS=1` (a dev server already on :3000 is reused, so stop yours first or faults
+  won't apply) and signs in as its own workspace ("Settlix E2E Store", `tests/e2e/workspace.ts`;
+  password derived from `SUPABASE_SECRET_KEY`). Live specs (real sandbox checkout through the PayPal
+  popup, real Claude, PayPal read-back) run only with `E2E_LIVE=1` and need
+  `PAYPAL_SANDBOX_BUYER_EMAIL` / `PAYPAL_SANDBOX_BUYER_PASSWORD` and the Anthropic env.
 - `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`)
 - `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
   with the sandbox buyer in between).
@@ -32,6 +41,9 @@ Hackathon 2026.
   run `get_advisors` (security + performance), and regenerate `src/types/database.ts` with
   `generate_typescript_types`. Never edit applied migrations; add a new one.
 - Test triggers/constraints with `execute_sql` inside `begin; … rollback;`.
+- The Supabase connector can hang (60 s timeout, nothing applied) on some SQL: seen with function
+  bodies where an advisory lock or another statement precedes `delete from`. Bisect in
+  `begin; … rollback;` and restructure (e.g. `insert … on conflict do update` instead of pruning).
 - Access model: `authenticated` can only `SELECT` its merchant's rows (RLS via
   `private.current_user_merchant_ids()`); `anon` has nothing. **All writes go through server-only code**
   using `createAdminClient()` after `requireMember()` + a role check (`can.*`), always scoping by the
@@ -45,7 +57,8 @@ Hackathon 2026.
   re-checks status, latest investigation, capture mapping, payment state, currency, and balance, then
   inserts the `REQUESTED` attempt (with request hash + approval snapshot) and moves the case to
   `REFUND_PENDING`; `record_refund_outcome()` updates attempt, case, and order payment state in one
-  transaction (terminal outcomes can't change).
+  transaction (terminal outcomes can't change). `consume_rate_limit()` is a per-merchant, per-action
+  fixed-window counter (`private.rate_limit_buckets`) used by approve, reconcile, and checkout.
 
 ## Code layout
 
@@ -69,11 +82,18 @@ Hackathon 2026.
   `warnings.ts`. `src/lib/investigations/` — `context.ts` (evidence + stable hash), `load.ts`,
   `service.ts` (claim → Claude → validate → persist → audit; restores the case on failure),
   `records.ts` (parse stored rows). The case page re-runs the engine on current records.
-- `src/lib/refunds/` — `service.ts` (`approveAndRefund`: role → re-run eligibility → claim RPC →
-  audit → PayPal → `record_refund_outcome`; `reconcileRefund` GETs a known refund or replays the
-  stored request with the same `PayPal-Request-Id`), `outcome.ts` (PayPal response → outcome;
-  anything unverified is `RECOVERY_REQUIRED`). Routes: `POST /api/cases/[caseId]/approve-and-refund`
-  and `/reconcile-refund`.
+- `src/lib/refunds/` — `service.ts` (`approveAndRefund`: role → re-run eligibility → rate limit →
+  claim RPC → audit → PayPal → `record_refund_outcome`; a duplicate or already-refunded case answers
+  with the existing attempt; any failure before the claim commits returns "nothing was sent to
+  PayPal"; `reconcileRefund` GETs a known refund or replays the stored request with the same
+  `PayPal-Request-Id`; PayPal calls go through an injectable `RefundGateway`), `outcome.ts` (PayPal
+  response → outcome; anything unverified is `RECOVERY_REQUIRED`). Routes:
+  `POST /api/cases/[caseId]/approve-and-refund` and `/reconcile-refund`.
+- `src/lib/security/rate-limit.ts` — per-merchant limits for endpoints that reach PayPal.
+- `src/lib/testing/` — test-only fault switch for the E2E suite: with `SETTLIX_TEST_FAULTS=1` outside
+  production, the `x-settlix-test-fault` header picks a named scenario (`ai_timeout`,
+  `ai_invalid_output`, `paypal_lost_response`, and PayPal sandbox negative testing via
+  `PayPal-Mock-Response`). Ignored otherwise; the PayPal adapter refuses mock codes when it's off.
 - `src/lib/cases/` — `inbox.ts` (search/filter/sort/counts), `actions.ts` (which status moves note,
   request evidence, send to review, and decline allow); server actions in `cases/[caseId]/actions.ts`.
 - `src/lib/receipts/receipt.ts` (receipt state, factual reply, copyable summary) +
@@ -135,6 +155,7 @@ Hackathon 2026.
 - Case state and refund-attempt state are separate; invalid transitions are rejected server-side.
 - Audit events are append-only. Logs never contain tokens, auth headers, or secrets.
 - Seeded data is labeled as demo data and never claims a real refund happened.
+- `SETTLIX_TEST_FAULTS` is for local/E2E runs only: never set it in a deployed environment.
 
 ## Tooling available to agents
 

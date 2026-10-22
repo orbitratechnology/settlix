@@ -76,8 +76,14 @@ https://developer.paypal.com/api/orders/v2/error-messages. Only the codes in the
 explicitly shown working. **Try any other code in sandbox before you rely on it.**
 
 Settlix rules for mock headers:
-- Only send the header when `PAYPAL_NEGATIVE_TESTING=1` on the server and the base URL is sandbox.
-- The browser must never be able to choose or inject a mock code.
+- Only send the header when the server's test-fault switch is on (`SETTLIX_TEST_FAULTS=1`, never in
+  production; `src/lib/testing/faults.ts`) and the base URL is sandbox. The adapter refuses a mock
+  code otherwise.
+- A request may only name a fault from the fixed server allowlist (`x-settlix-test-fault`); the
+  browser never supplies a mock code itself.
+- Verified in this sandbox (2026-10-22, negative testing on): refund POST with
+  `REFUND_FAILED_INSUFFICIENT_FUNDS` → 422 with that issue, `INTERNAL_SERVER_ERROR` → 500,
+  `REFUND_NOT_ALLOWED` → 422; GET refund with `INTERNAL_SERVER_ERROR` → 500.
 - Treat `INTERNAL_SERVER_ERROR` mocks as unknown-outcome tests. The refund row must end in
   `RECOVERY_REQUIRED` and then be reconciled. It must never be retried with a new request ID.
 

@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { approveAndRefund, blockedHttpStatus } from "@/lib/refunds/service"
 import { jsonError, requireApiMember } from "@/lib/security/api"
+import { requestedTestFault, TEST_FAULT_HEADER } from "@/lib/testing/faults"
 
 // PayPal calls time out after 30 seconds.
 export const maxDuration = 60
@@ -36,8 +37,27 @@ export async function POST(
     return jsonError(400, "invalid_request", "Invalid approval request.")
   }
 
-  const result = await approveAndRefund(auth.member, caseId, parsed.data)
-  return NextResponse.json(result, {
-    status: result.status === "blocked" ? blockedHttpStatus[result.code] : 200,
-  })
+  const testFault = requestedTestFault(request)
+  try {
+    const result = await approveAndRefund(auth.member, caseId, parsed.data, {
+      testFault,
+    })
+    const response = NextResponse.json(result, {
+      status:
+        result.status === "blocked" ? blockedHttpStatus[result.code] : 200,
+    })
+    if (testFault) response.headers.set(TEST_FAULT_HEADER, testFault)
+    return response
+  } catch (error) {
+    console.error("approve_and_refund_failed", {
+      caseId,
+      reason: error instanceof Error ? error.message : "unknown",
+    })
+    // The refund may or may not have reached PayPal: never claim either way.
+    return jsonError(
+      500,
+      "internal_error",
+      "Something went wrong while processing the approval. Refresh the case to see its current state before doing anything else.",
+    )
+  }
 }

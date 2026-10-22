@@ -159,6 +159,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /blob-report/
+/tests/e2e/.auth/
 
 # agent-browser state
 .agent-browser/

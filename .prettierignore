@@ -4,3 +4,7 @@ src/components/ui/
 docs/
 bun.lock
 src/types/database.ts
+test-results/
+playwright-report/
+blob-report/
+tests/e2e/.auth/

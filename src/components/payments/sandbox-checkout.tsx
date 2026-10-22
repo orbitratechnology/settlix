@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   INSTANCE_LOADING_STATE,
@@ -66,6 +66,8 @@ function PayPalButtonArea({
 }) {
   const router = useRouter()
   const { loadingStatus, error } = usePayPal()
+  // Settlix's own reason when it refused to start the checkout.
+  const startError = useRef<string | null>(null)
 
   if (loadingStatus === INSTANCE_LOADING_STATE.REJECTED || error) {
     return (
@@ -87,12 +89,19 @@ function PayPalButtonArea({
       type="pay"
       createOrder={async () => {
         onNotice(null)
+        startError.current = null
         // The browser sends only the catalog item ID; the server sets the price.
-        const { orderId } = await postJson<{ orderId: string }>(
-          "/api/paypal/orders",
-          { itemId },
-        )
-        return { orderId }
+        try {
+          const { orderId } = await postJson<{ orderId: string }>(
+            "/api/paypal/orders",
+            { itemId },
+          )
+          return { orderId }
+        } catch (cause) {
+          startError.current =
+            cause instanceof Error ? cause.message : "Request failed"
+          throw cause
+        }
       }}
       onApprove={async ({ orderId }) => {
         onNotice({
@@ -136,11 +145,19 @@ function PayPalButtonArea({
         router.refresh()
       }}
       onError={() => {
-        onNotice({
-          tone: "error",
-          title: "Checkout failed",
-          body: "PayPal reported an error. Nothing was charged.",
-        })
+        onNotice(
+          startError.current
+            ? {
+                tone: "error",
+                title: "Checkout not started",
+                body: `${startError.current} Nothing was charged.`,
+              }
+            : {
+                tone: "error",
+                title: "Checkout failed",
+                body: "PayPal reported an error. Nothing was charged.",
+              },
+        )
       }}
     />
   )

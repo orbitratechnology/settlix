@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { investigateCase } from "@/lib/investigations/service"
 import { jsonError, requireApiMember } from "@/lib/security/api"
+import { requestedTestFault, TEST_FAULT_HEADER } from "@/lib/testing/faults"
 
 // Claude's own budget is 75 seconds including retries.
 export const maxDuration = 90
@@ -33,9 +34,38 @@ export async function POST(
     return jsonError(404, "not_found", "Case not found.")
   }
 
-  const result = await investigateCase(auth.member, caseId)
-  if (result.status === "completed") {
-    return NextResponse.json(result)
+  // Test faults swap in a model that fails; it never produces a recommendation.
+  const fault = requestedTestFault(request)
+  const aiFault =
+    fault === "ai_timeout" || fault === "ai_invalid_output" ? fault : null
+  try {
+    const result = await investigateCase(
+      auth.member,
+      caseId,
+      aiFault
+        ? {
+            model: (await import("@/lib/testing/fault-models")).faultModel(
+              aiFault,
+            ),
+          }
+        : {},
+    )
+    const response =
+      result.status === "completed"
+        ? NextResponse.json(result)
+        : NextResponse.json(result, { status: statusByCode[result.code] })
+    if (aiFault) response.headers.set(TEST_FAULT_HEADER, aiFault)
+    return response
+  } catch (error) {
+    // Thrown only before the case is claimed, so nothing changed.
+    console.error("investigation_failed", {
+      caseId,
+      reason: error instanceof Error ? error.message : "unknown",
+    })
+    return jsonError(
+      503,
+      "unavailable",
+      "Settlix couldn't start the investigation. The case is unchanged; try again shortly.",
+    )
   }
-  return NextResponse.json(result, { status: statusByCode[result.code] })
 }
