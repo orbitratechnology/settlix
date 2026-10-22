@@ -18,6 +18,7 @@ import {
   normalizeOrderReference,
 } from "./references"
 import { isStatusToken, newStatusToken } from "./tokens"
+import type { RequestCategory } from "@/lib/domain/labels"
 import { Constants } from "@/types/database"
 
 describe("order references", () => {
@@ -56,7 +57,7 @@ describe("order references", () => {
 })
 
 describe("classifyRequest", () => {
-  const cases: [string, string][] = [
+  const cases: [string, RequestCategory][] = [
     ["My parcel never arrived and tracking is stuck", "not_received"],
     ["It still hasn't arrived after two weeks", "not_received"],
     ["You sent me the wrong size", "wrong_item"],

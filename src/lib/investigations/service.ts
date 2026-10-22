@@ -97,6 +97,9 @@ const error = (
   aiFailure?: AiFailureKind,
 ): InvestigationResponse => ({ status: "error", code, message, aiFailure })
 
+/** Who started a run: a member, or Settlix checking a new request on arrival. */
+export type InvestigationActor = { type: "user"; id: string } | { type: "system" }
+
 /**
  * PRD §13 POST /api/cases/[caseId]/investigate. Runs Claude on the case's
  * merchant-scoped evidence, validates citations, applies the deterministic
@@ -111,8 +114,27 @@ export async function investigateCase(
   if (!can.investigate(member.role)) {
     return error("forbidden", "Your role can't run investigations.")
   }
+  return runInvestigation({
+    merchantId: member.workspace.id,
+    caseId,
+    actor: { type: "user", id: member.userId },
+    model: options.model,
+  })
+}
 
-  const handle = options.model ?? investigationModel()
+/**
+ * The investigation itself, for a caller that already decided it may run: a
+ * member (above) or Settlix's automatic check of a new request. The merchant ID
+ * always comes from the caller's own records, never from a request body.
+ */
+export async function runInvestigation(input: {
+  merchantId: string
+  caseId: string
+  actor: InvestigationActor
+  model?: ModelHandle
+}): Promise<InvestigationResponse> {
+  const { merchantId, caseId, actor } = input
+  const handle = input.model ?? investigationModel()
   if (!handle) {
     return error(
       "ai_failed",
@@ -121,7 +143,6 @@ export async function investigateCase(
     )
   }
 
-  const merchantId = member.workspace.id
   const admin = createAdminClient()
   const { data: row, error: loadError } = await admin
     .from("cases")
@@ -177,7 +198,6 @@ export async function investigateCase(
   }
 
   const previousStatus: CaseStatus = staleRun ? "NEEDS_REVIEW" : row.status
-  const actor = { type: "user" as const, id: member.userId }
 
   // Everything after the claim restores the case if it fails.
   try {
@@ -186,7 +206,10 @@ export async function investigateCase(
       caseId,
       actor,
       eventType: "investigation.started",
-      summary: `Investigation started for ${row.case_number}.`,
+      summary:
+        actor.type === "system"
+          ? `Settlix asked Claude to check ${row.case_number} when it arrived.`
+          : `Investigation started for ${row.case_number}.`,
       metadata: { prompt_version: PROMPT_VERSION, model_id: handle.modelId },
     })
     const context = await loadInvestigationContext(admin, merchantId, row)
@@ -224,7 +247,7 @@ export async function investigateCase(
         input_context_hash: contextHash(context),
         recommendation_json: stored as unknown as Json,
         eligibility_result: eligibility as unknown as Json,
-        created_by: member.userId,
+        created_by: actor.type === "user" ? actor.id : null,
       })
       .select("id")
       .single()
