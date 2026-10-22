@@ -14,7 +14,8 @@ Hackathon 2026.
 
 - `bun run dev` — dev server on :3000 (Turbopack; exposes `/_next/mcp`)
 - `bun run check` — lint + format check + typecheck + unit tests (run before every commit)
-- `bun run build` — production build (must pass at the end of each phase)
+- `bun run build` — production build (must pass at the end of each phase). The Turbopack build
+  cache is off (`next.config.ts`): a warm cache shipped stale Tailwind CSS.
 - `bun run format` — Prettier (with Tailwind class sorting); `src/components/ui/` is left as generated
 - `bun test` — unit tests (`*.test.ts`, Bun test runner); `tests/integration/` runs against the real
   Supabase project (skipped without env) and needs the seed data. Writing integration tests create
@@ -27,8 +28,9 @@ Hackathon 2026.
   password derived from `SUPABASE_SECRET_KEY`). Live specs (real sandbox checkout through the PayPal
   popup, real Claude, PayPal read-back) run only with `E2E_LIVE=1` and need
   `PAYPAL_SANDBOX_BUYER_EMAIL` / `PAYPAL_SANDBOX_BUYER_PASSWORD` and the Anthropic env.
-  `a11y.e2e.ts` runs axe-core (WCAG 2.1 A/AA) on every screen in light and dark mode; serious or
-  critical findings fail it. Keep status colors AA as text on their own 10% tints.
+  `a11y.e2e.ts` runs axe-core (WCAG 2.1 A/AA) on every screen in light and dark mode after finite
+  animations finish; serious or critical findings fail it. Keep status colors AA as text on their own
+  10% tints. Specs read a request's status from `data-testid="case-status"`.
 - `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`);
   policy versions already present (by ID, or by name + version if created in the app) are skipped
 - `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
@@ -68,14 +70,24 @@ Hackathon 2026.
 - `src/app/(app)/` — authenticated dashboard routes inside the shadcn sidebar shell
   (`layout.tsx` = `SidebarProvider` + `AppSidebar` + `SiteHeader`); `src/app/(auth)/login`; `src/app/page.tsx` landing.
 - `src/components/ui/` — shadcn components (base: Base UI, style: nova). Add more with the CLI; don't hand-edit
-  unless fixing a real bug. Navigation buttons are `<Link className={buttonVariants()}>` so they stay links.
-- `src/components/` — app components (shell, page header, brand); feature folders (`cases/`, `receipts/`, …).
+  unless fixing a real bug. Phase 8 deliberately enlarged sizes in button, badge, card, table, input,
+  select, textarea, and input-group (keep them when re-adding). `command.tsx` came from the registry
+  JSON (the CLI prompts to overwrite button.tsx; answer no). Navigation buttons are
+  `<Link className={buttonVariants()}>` so they stay links.
+- `src/components/` — app components (shell, page header, brand mark, `command-menu.tsx` ⌘K); feature
+  folders (`cases/`, `receipts/`, `dashboard/` stage line + refunds chart, …). `cases/case-progress.tsx`
+  is the four-step tracker; `Disclosure` (in `cases/case-facts.tsx`) folds technical details away.
+- `src/components/landing/` — the landing page: `examples.ts` (demo-store examples, verbatim demo
+  policy quotes; illustrations, never live results), hero + working request check, lifecycle fields,
+  paperwork (receipt / reply / activity, `ReceiptSheet` also on sign-in), safeguards, closing +
+  footer, and `landing-motion.tsx` (GSAP ScrollTrigger reveals and route; reduced motion = fade only).
 - `src/lib/navigation.ts` — sidebar items and breadcrumbs (a receipt's trail runs through its case).
 - `src/lib/supabase/` — `server.ts` (user-scoped, cookies), `admin.ts` (secret key, server-only),
   `proxy.ts` (session refresh + optimistic redirects, used by `src/proxy.ts`).
 - `src/lib/security/auth.ts` — `getViewer()` / `requireMember()` (getClaims + membership via RLS);
   role capabilities `can.*` live in `roles.ts` (pure). `src/lib/data/` — merchant-scoped reads used by pages.
-- `src/lib/domain/labels.ts` — status/category labels and badge tones; `src/lib/money/` — integer
+- `src/lib/domain/labels.ts` — status/category labels and badge tones, in plain language (the UI says
+  "request" and "rule", not "case" and "clause"; "paid", not "captured"); `src/lib/money/` — integer
   minor-unit helpers (tested); `src/types/database.ts` — generated types.
 - `src/lib/ai/` — Claude via AI SDK: `client.ts` (model from env, pinned base URL), `schemas.ts`
   (recommendation Zod schema), `prompts.ts` (`PROMPT_VERSION`; bump it on any prompt change),
@@ -134,6 +146,10 @@ Hackathon 2026.
   `globals.css`, not ad-hoc colors.
 - **Theme:** shadcn token theme matched to PayPal brand (deep/bright/medium blues on a black-and-white
   base), light + dark. Status colors are restrained and never the only signal (always a text label).
+  Type is Schibsted Grotesk with a one-step-larger small scale (13 / 15 / 16 px). Write for a
+  non-technical shop owner: plain words, technical IDs behind "PayPal references" / "Technical
+  details" disclosures. Design skills: `hallmark`, `design-taste-frontend` (its scripts need
+  `CHROME_PATH` pointing at a `--no-sandbox` wrapper of `/opt/pw-browsers/chromium`), `frontend-design`.
 - **Responsive:** every screen must work on mobile, tablet, and desktop (shadcn dashboard style).
 - **Supabase**: Postgres + Auth via `@supabase/ssr` (cookie sessions, server-side `getClaims()`/user
   validation), RLS on every merchant-owned table, migrations in `supabase/migrations/`.
@@ -164,7 +180,8 @@ Hackathon 2026.
 
 ## Tooling available to agents
 
-- Skills (`.claude/skills/`): `paypal-rest` (project-authored from official PayPal docs), `supabase`,
+- Skills (`.claude/skills/`): `paypal-rest` (project-authored from official PayPal docs), `hallmark`,
+  `design-taste-frontend`, `frontend-design`, `supabase`,
   `supabase-postgres-best-practices`, `shadcn`, `ai-sdk`, `next-dev-loop`,
   `next-cache-components-optimizer`, `next-bundle-optimizer`, `vercel-react-best-practices`,
   `vercel-composition-patterns`, `web-design-guidelines`. Also the built-in `claude-api` skill.

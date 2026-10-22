@@ -42,9 +42,9 @@ export function PolicyStatusBadge({
   isActive: boolean
   publishedAt: string | null
 }) {
-  if (isActive) return <Badge variant="success">Active</Badge>
+  if (isActive) return <Badge variant="success">In use</Badge>
   if (!publishedAt) return <Badge variant="warning">Draft</Badge>
-  return <Badge variant="secondary">Inactive</Badge>
+  return <Badge variant="secondary">Not in use</Badge>
 }
 
 /** Marks seeded demo records so they are never mistaken for live PayPal data. */

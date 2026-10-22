@@ -51,9 +51,11 @@ export function LoginForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Sign in to Settlix</CardTitle>
-          <CardDescription>Use your merchant workspace account</CardDescription>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+          <CardDescription>
+            Use your store&apos;s Settlix account.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction}>
@@ -106,12 +108,12 @@ export function LoginForm({
 
       <Alert>
         <FlaskConicalIcon />
-        <AlertTitle>Judging the hackathon demo?</AlertTitle>
+        <AlertTitle>Want to look around?</AlertTitle>
         <AlertDescription>
           <p>
-            Sign in as the demo merchant ({DEMO_ACCOUNT.email} /{" "}
-            {DEMO_ACCOUNT.password}). It only sees seeded demo data and PayPal
-            Sandbox payments.
+            Use the demo store: {DEMO_ACCOUNT.email}, password{" "}
+            {DEMO_ACCOUNT.password}. It holds example requests and PayPal
+            Sandbox test payments only.
           </p>
           <Button
             type="button"
@@ -125,9 +127,8 @@ export function LoginForm({
         </AlertDescription>
       </Alert>
 
-      <FieldDescription className="px-6 text-center">
-        Settlix is a hackathon demo that runs against the PayPal Sandbox. No
-        real payments are processed.
+      <FieldDescription>
+        Settlix runs on the PayPal Sandbox. No real money moves.
       </FieldDescription>
     </div>
   )

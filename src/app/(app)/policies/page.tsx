@@ -127,7 +127,7 @@ function PolicyGroupCard({
         ) : null}
         <CardAction>
           {active ? (
-            <Badge variant="success">Active: v{active.version}</Badge>
+            <Badge variant="success">In use: version {active.version}</Badge>
           ) : (
             <Badge variant="secondary">No active version</Badge>
           )}
@@ -152,14 +152,12 @@ function PolicyGroupCard({
                     />
                   </span>
                   <span className="text-muted-foreground">
-                    {version.clauses.length} clause
-                    {version.clauses.length === 1 ? "" : "s"}
-                    {" · "}
+                    {version.clauses.length} rule
+                    {version.clauses.length === 1 ? "" : "s"},{" "}
                     {version.return_window_days === null
                       ? "no return window"
-                      : `${version.return_window_days}-day window`}
-                    {" · effective "}
-                    {formatDate(version.effective_from)}
+                      : `${version.return_window_days}-day return window`}
+                    , from {formatDate(version.effective_from)}
                     {version.effective_until
                       ? ` to ${formatDate(version.effective_until)}`
                       : ""}

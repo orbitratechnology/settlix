@@ -44,8 +44,8 @@ async function investigateUntilReady(page: Page) {
   expect(body.outcome, "Claude's recommendation and the checks").toBe(
     "eligible_for_approval",
   )
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Ready for approval",
+  await expect(page.getByTestId("case-status")).toContainText(
+    "Ready to approve",
   )
   return body.investigationId
 }
@@ -65,7 +65,7 @@ async function approveInDialog(page: Page, { doubleClick = false } = {}) {
 }
 
 const refundIdIn = async (text: Promise<string | null>) =>
-  (await text)!.match(/refund (\w+)\)/)![1]
+  (await text)!.match(/PayPal reference (\w+)\)/)![1]
 
 test("E2E-01 full refund to receipt, with E2E-04 and a double click", async ({
   page,
@@ -218,10 +218,9 @@ test("E2E-07 a PayPal decline, then a lost response reconciled once", async ({
 
   // Reconciliation replays the same request: PayPal returns the same refund.
   await page.getByRole("button", { name: "Check with PayPal" }).click()
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Refunded",
-    { timeout: 60_000 },
-  )
+  await expect(page.getByTestId("case-status")).toContainText("Refunded", {
+    timeout: 60_000,
+  })
   const attempts = await refundAttempts(caseId)
   expect(attempts.map((a) => a.status)).toEqual(["FAILED", "COMPLETED"])
   expect(attempts[1].paypal_refund_id).toBe(atPayPal[0].id)

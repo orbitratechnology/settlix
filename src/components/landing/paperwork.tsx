@@ -44,7 +44,7 @@ function Row({
   )
 }
 
-function ReceiptSheet() {
+export function ReceiptSheet() {
   return (
     <div
       className="flex w-[min(24rem,100%)] flex-col gap-5 bg-paper px-6 pt-6 pb-10 text-[0.9375rem] text-foreground"

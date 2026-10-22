@@ -37,8 +37,8 @@ test("E2E-03 missing evidence blocks the refund", async ({ page }) => {
   const response = await investigate(page)
   expect(response.status()).toBe(200)
   expect(await response.json()).toMatchObject({ outcome: "requires_evidence" })
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Needs evidence",
+  await expect(page.getByTestId("case-status")).toContainText(
+    "Waiting on customer",
   )
   const missing = page
     .getByRole("heading", { name: "Missing information" })

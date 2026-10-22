@@ -16,6 +16,17 @@ import {
 async function audit(page: Page, path: string) {
   await page.goto(path)
   await page.waitForLoadState("networkidle")
+  // Measure the page at rest: contrast mid-fade isn't what anyone reads.
+  // Looping animations (spinners, skeleton pulses) never finish; skip them.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished),
+    ),
+  )
+  await page.waitForTimeout(500)
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze()

@@ -35,8 +35,9 @@ with policy, and auditable.
 
 ## 3. Features
 
-- **Resolution Inbox**: search, filter by status and category, sort by date or amount, attention
-  indicators, the latest AI recommendation per case.
+- **Refund requests** (the inbox): search, quick views, filter by stage and reason, sort by date or
+  amount, the latest suggestion from Claude per request; the Overview's stages link straight to a
+  filtered view.
 - **Cases from real sandbox payments**: run a PayPal Sandbox checkout in the app (JS SDK v6), then
   open a refund case for the captured payment.
 - **AI investigation** (Claude via the Vercel AI SDK): structured, schema-validated recommendation
@@ -58,10 +59,16 @@ with policy, and auditable.
   copyable summary.
 - **Return policies**: versioned, published versions are immutable, one active version per
   policy, clause-level citations.
-- **Dashboard**: metrics computed from stored records only (confirmed refunds exclude demo records
-  and pending amounts), cases needing attention, recent refunds, integration health.
+- **Overview**: a one-sentence summary of what needs you, requests by stage on one line, who is
+  waiting, money refunded per day (PayPal-confirmed refunds only; demo records and pending amounts
+  excluded), recent refunds, and live connection checks for PayPal and Claude.
 - **Case actions**: add merchant notes, request evidence, send to review, decline.
-- Light and dark themes in a PayPal-inspired palette; works on phone, tablet, and desktop.
+- Written for non-technical merchants: plain language, a four-step progress tracker on every
+  request, larger type, and technical IDs behind "PayPal references" disclosures. A ⌘K menu jumps
+  to any page.
+- Light and dark themes in a PayPal-inspired palette; works on phone, tablet, and desktop. The
+  landing page shows the product working (an interactive request check, the request lifecycle, and
+  the receipt), animated with GSAP and calm under reduced motion.
 
 ## 4. Architecture
 
@@ -199,22 +206,23 @@ Check the connection on the **Payments** page (it shows the REST app ID, never t
 2. Choose a test item and click **Pay with PayPal**.
 3. In the PayPal window, sign in with the sandbox **Personal** account and pay with the sandbox
    card.
-4. Settlix captures the order on the server and lists the payment as **Captured** with its PayPal
-   order and capture IDs.
+4. Settlix captures the order on the server and lists the payment as **Paid** under **Test
+   payments**, with its PayPal order and payment (capture) IDs under **PayPal references**.
 
 ## 12. Investigate and approve a refund
 
-1. On the captured payment, click **Create case** and enter the customer's request. A payment that
+1. On the paid payment, click **Create request** and enter the customer's request. A payment that
    is only minutes old fits one honest scenario: the customer asks to **cancel before dispatch**
-   (policy clause CN-1). For example: category "Changed mind", message "I ordered this by mistake,
-   please cancel it before it ships", and a merchant note confirming the order hadn't been packed
-   or shipped.
-2. Open the case and click **Start investigation**. Claude's recommendation appears with the cited
-   clauses (each marked as matching the stored policy), the evidence, and the deterministic checks.
-3. If the case is **Ready for approval**, click **Approve and issue refund**, review the amount,
-   balance before and after, and the cited clauses, and confirm.
-4. The dialog shows PayPal's actual result, for example "PayPal completed the $42.00 refund
-   (refund 1J3010819W148030C)".
+   (policy rule CN-1). For example: reason "Changed mind", message "I ordered this by mistake,
+   please cancel it before it ships", and a note confirming the order hadn't been packed or
+   shipped.
+2. On the request page, click **Check this request**. Claude's suggestion appears with the quoted
+   rules (each marked "Quote checked" against the stored policy), and **Your decision** shows
+   Settlix's own checks.
+3. If the request is **Ready to approve**, click **Approve and issue refund**, review the amount
+   and what is left afterwards, and confirm.
+4. The dialog shows PayPal's actual result, for example "PayPal sent $42.00 back to the customer
+   (PayPal reference 1J3010819W148030C)", and links to the receipt.
 
 To see Settlix decline to act, open a seeded case such as **DEMO-103** (no photo for a damage
 claim: Claude asks for evidence, no refund action) or **DEMO-109** (prompt injection in the

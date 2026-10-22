@@ -289,7 +289,7 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   while the suite was being written left one captured, unused sandbox payment there.
 - **Exit:** critical negative paths fail safely and preserve truthful payment state.
 
-## Phase 7 — Dashboard, polish & submission readiness ✅ (awaiting approval)
+## Phase 7 — Dashboard, polish & submission readiness ✅
 
 - Demo data: the seed now includes policy v3 (v2's clauses + CN-1 cancellation before dispatch)
   and skips versions that already exist by ID or by name + version (the live v3 was created in the
@@ -329,6 +329,52 @@ for the user's approval. Status: ⬜ not started · 🟡 in progress · ✅ done
   `2YH29936RD645784X`). E2E-06/07 need the test-fault switch, which is off in production by design.
 - README links the live demo; the demo video link comes after recording.
 - **Exit:** deployed app + public repo ready for the demo video.
+
+## Phase 8 — Redesign for non-technical merchants ✅ (awaiting approval)
+
+User feedback: screens were cluttered, small, and full of technical terms. Design skills installed
+in `.claude/skills/` (hallmark, design-taste-frontend, frontend-design); shadcn-admin used as the
+reference for the shell. Dealt directions: landing "The product performs" (taste seed 1327972034,
+type Schibsted Grotesk, palette kept from the PayPal brand), app "Framed sheet" (seed 1512417758).
+
+- Theme: Schibsted Grotesk everywhere; one step larger small text (13 / 15 / 16 px), larger
+  controls (40 px buttons and inputs), roomier cards (24 px), softer radius (12 px). New tokens:
+  `--stage` (PayPal deep blue), `--field`, `--field-2`, `--field-3`, `--paper`; motion keyframes
+  (`rise`, `draw`, `shutter`, `settle`) that `motion-safe:` gates.
+- Landing (`src/components/landing/`): the hero is a working request check (three example
+  requests from the demo store, quoting the demo policy verbatim) on a PayPal-blue stage with a
+  receipt's torn edge, opened by a CSS shutter; "How a refund gets settled" shows the same request
+  card one step further along in four colour fields, with a route drawn by GSAP ScrollTrigger;
+  "Every case ends in writing" swaps the receipt / reply / activity log (GSAP); six safeguards as
+  real interface fragments; a closing CTA and a tiled footer. Reduced motion keeps content and
+  drops travel. Every fragment is labelled as an example; nothing claims a real refund.
+- Shell: tinted frame + white sheet, grouped sidebar ("Daily work", "Store setup"), a live count of
+  requests needing attention, a ⌘K command menu (pages + colour theme), a compact sandbox badge.
+- Overview: one-sentence finding ("5 requests need your review…"), a follow-up alert, the request
+  stages as stations on one line (each opens the inbox filtered via `?view=`), "Waiting on
+  someone" and "Recent refunds" as readable rows, money refunded per day, connections.
+- Refund requests: two-line rows (customer, problem, reason, status, Claude's suggestion, amount,
+  date), pill quick views, filters by stage / reason / sort.
+- Request page: a four-step progress tracker, "Your decision" first (outcome, amount, approve,
+  what needs attention, "N of M checks passed"), then "Claude's check" (suggestion, missing
+  information, quoted rules, reply draft; full reasoning and model details folded away). Side:
+  what the customer asked, order and payment with a paid / refunded / left bar, PayPal IDs behind
+  "PayPal references". The four action buttons became one "More actions" menu.
+- Receipt: laid out as a receipt (state, amount, rows, approval, PayPal references), with the reply
+  and "Why" beside it; technical attempt data behind a disclosure. Sign-in: two columns with an
+  example receipt on the brand stage.
+- Plain language across statuses, checks (engine labels and summaries), refund messages, payments
+  ("paid" not "captured"), and policies ("rules" not "clauses").
+- Build fix: `experimental.turbopackFileSystemCacheForBuild: false`. A warm build cache shipped the
+  previous theme's CSS after `globals.css` changed; Vercel restores `.next/cache`, so production
+  builds now compile CSS fresh.
+- Verified: `bun run check` (158 tests), clean `next build`, Playwright 14/14 including the live
+  specs (E2E-01/02/04/05 sandbox refunds, missing evidence, model failure, lost response) and axe
+  in light and dark (the audit now waits for entrance animations to finish), screenshots at 390 /
+  820 / 1440 in both themes with no horizontal overflow. Taste inspector on the landing: one FAIL
+  (`few-pictures`: it wants photographs; the page's imagery is the product's own interface) and
+  warnings reviewed.
+- **Exit:** user review; deploy by merging to `main` once approved.
 
 ## After MVP (only on request)
 

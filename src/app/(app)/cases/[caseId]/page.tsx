@@ -143,7 +143,10 @@ export default async function CasePage({
             </span>
             <OriginBadge origin={detail.origin} />
             <span>
-              {detail.order.description}. Request {detail.case_number}.
+              {detail.order.description}.{" "}
+              <span className="whitespace-nowrap">
+                Request {detail.case_number}.
+              </span>
             </span>
           </span>
         }

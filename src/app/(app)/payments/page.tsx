@@ -60,8 +60,8 @@ export default function PaymentsPage() {
         <FlaskConicalIcon />
         <AlertTitle>Sandbox only</AlertTitle>
         <AlertDescription>
-          Every checkout, capture, and refund in Settlix uses the PayPal
-          Sandbox. No real money moves.
+          Every purchase and refund in Settlix uses PayPal Sandbox test money.
+          No real money moves.
         </AlertDescription>
       </Alert>
 

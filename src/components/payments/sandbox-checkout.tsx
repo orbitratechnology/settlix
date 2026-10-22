@@ -195,7 +195,7 @@ export function SandboxCheckout({
                 <FieldTitle>{item.name}</FieldTitle>
                 <FieldDescription>{item.description}</FieldDescription>
               </FieldContent>
-              <span className="text-sm font-medium tabular-nums">
+              <span className="text-sm font-semibold">
                 {formatMoney(item.amountMinor, item.currency)}
               </span>
               <RadioGroupItem value={item.id} id={`item-${item.id}`} />

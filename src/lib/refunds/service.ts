@@ -646,9 +646,9 @@ const resultStatus = {
 function outcomeMessage(outcome: RefundOutcome, amount: string): string {
   switch (outcome.status) {
     case "COMPLETED":
-      return `PayPal sent ${amount} back to the customer. The receipt is ready.`
+      return `PayPal sent ${amount} back to the customer (PayPal reference ${outcome.paypalRefundId}). The receipt is ready.`
     case "PENDING":
-      return `PayPal accepted the ${amount} refund but hasn't finished it yet. The request stays "Refund in progress" until PayPal confirms it.`
+      return `PayPal accepted the ${amount} refund (PayPal reference ${outcome.paypalRefundId}) but hasn't finished it yet. The request stays "Refund in progress" until PayPal confirms it.`
     case "FAILED": {
       const reason =
         (outcome.errorCode && refundIssueMessages[outcome.errorCode]) ??
