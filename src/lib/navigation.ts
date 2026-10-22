@@ -13,30 +13,48 @@ export type NavItem = {
   icon: LucideIcon
 }
 
-export const mainNav: NavItem[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
-  { title: "Resolution Inbox", href: "/cases", icon: InboxIcon },
-  { title: "Policies", href: "/policies", icon: ScrollTextIcon },
-  { title: "Payments", href: "/payments", icon: CreditCardIcon },
+export type NavGroup = { label: string; items: NavItem[] }
+
+export const navGroups: NavGroup[] = [
+  {
+    label: "Daily work",
+    items: [
+      { title: "Overview", href: "/dashboard", icon: LayoutDashboardIcon },
+      { title: "Refund requests", href: "/cases", icon: InboxIcon },
+    ],
+  },
+  {
+    label: "Store setup",
+    items: [
+      { title: "Return policies", href: "/policies", icon: ScrollTextIcon },
+      { title: "Payments", href: "/payments", icon: CreditCardIcon },
+    ],
+  },
 ]
 
 export const secondaryNav: NavItem[] = [
   { title: "Settings", href: "/settings", icon: Settings2Icon },
 ]
 
+/** Every destination, for the command menu. */
+export const allNavItems: NavItem[] = [
+  ...navGroups.flatMap((group) => group.items),
+  ...secondaryNav,
+]
+
 /** Labels for static path segments, used by the header breadcrumbs. */
 export const segmentLabels: Record<string, string> = {
-  dashboard: "Dashboard",
-  cases: "Resolution Inbox",
-  policies: "Policies",
+  dashboard: "Overview",
+  cases: "Refund requests",
+  policies: "Return policies",
   payments: "Payments",
   settings: "Settings",
 }
 
 /** Labels for the record page under a section, e.g. /cases/<id> → "Case". */
 export const detailLabels: Record<string, string> = {
-  cases: "Case",
-  policies: "Policy version",
+  cases: "Request",
+  policies: "Policy",
   receipts: "Receipt",
 }
 

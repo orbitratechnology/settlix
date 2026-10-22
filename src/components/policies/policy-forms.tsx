@@ -132,7 +132,7 @@ function DetailsFields({
               />
             </InputGroup>
             <FieldDescription>
-              Higher amounts always need a merchant.
+              Higher amounts always need a person to review them.
             </FieldDescription>
             <FieldError>{errors.manualReviewAbove}</FieldError>
           </Field>
@@ -188,8 +188,8 @@ export function NewPolicyDialog({ today }: { today: string }) {
           <DialogHeader>
             <DialogTitle>New return policy</DialogTitle>
             <DialogDescription>
-              It starts as a draft. Add clauses, then publish it to make it
-              active.
+              It starts as a draft. Add its rules, then publish it to put it to
+              use.
             </DialogDescription>
           </DialogHeader>
           <FormError state={state} title="Policy not created" />
@@ -330,25 +330,25 @@ export function ClauseDialog({
         ) : (
           <>
             <PlusIcon data-icon="inline-start" />
-            Add clause
+            Add rule
           </>
         )}
       </DialogTrigger>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <form action={formAction} className="flex flex-col gap-6">
           <DialogHeader>
-            <DialogTitle>{clause ? "Edit clause" : "Add a clause"}</DialogTitle>
+            <DialogTitle>{clause ? "Edit rule" : "Add a rule"}</DialogTitle>
             <DialogDescription>
-              Investigations cite clauses by their ID and quote this text word
-              for word.
+              Claude refers to rules by their ID and quotes this text word for
+              word.
             </DialogDescription>
           </DialogHeader>
           <input type="hidden" name="clauseId" value={clause?.id ?? ""} />
-          <FormError state={state} title="Clause not saved" />
+          <FormError state={state} title="Rule not saved" />
           <FieldGroup>
             <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
               <Field data-invalid={invalid("clauseKey")}>
-                <FieldLabel htmlFor={`${prefix}-key`}>Clause ID</FieldLabel>
+                <FieldLabel htmlFor={`${prefix}-key`}>Rule ID</FieldLabel>
                 <Input
                   id={`${prefix}-key`}
                   name="clauseKey"
@@ -399,7 +399,7 @@ export function ClauseDialog({
               <FieldError>{errors.title}</FieldError>
             </Field>
             <Field data-invalid={invalid("content")}>
-              <FieldLabel htmlFor={`${prefix}-content`}>Clause text</FieldLabel>
+              <FieldLabel htmlFor={`${prefix}-content`}>Rule text</FieldLabel>
               <Textarea
                 id={`${prefix}-content`}
                 name="content"
@@ -417,7 +417,7 @@ export function ClauseDialog({
             </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? <Spinner data-icon="inline-start" /> : null}
-              {pending ? "Saving…" : "Save clause"}
+              {pending ? "Saving…" : "Save rule"}
             </Button>
           </DialogFooter>
         </form>

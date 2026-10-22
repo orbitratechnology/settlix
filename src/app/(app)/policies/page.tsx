@@ -42,7 +42,7 @@ export default function PoliciesPage() {
     <PageContainer>
       <PageHeader
         title="Return policies"
-        description="Versioned policies with stable clause IDs that investigations cite as evidence. Published versions are read-only."
+        description="The rules Claude checks every request against. A published version never changes; make a new version to update it."
         actions={
           <Suspense fallback={null}>
             <NewPolicyAction />
@@ -74,8 +74,8 @@ async function PolicyList() {
           </EmptyMedia>
           <EmptyTitle>No policies yet</EmptyTitle>
           <EmptyDescription>
-            Add a return policy with its clauses so investigations can cite it.
-            Until then, every case needs a merchant review.
+            Add your return policy and its rules so Claude can check requests
+            against them. Until then, a person reviews every request.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

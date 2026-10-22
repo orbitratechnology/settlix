@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
+import { CircleCheckIcon, CircleMinusIcon } from "lucide-react"
 
 import { ModeToggle } from "@/components/mode-toggle"
 import { PageContainer, PageHeader } from "@/components/page-header"
@@ -32,7 +33,7 @@ export default function SettingsPage() {
     <PageContainer>
       <PageHeader
         title="Settings"
-        description="Workspace details and preferences."
+        description="Your store, your role, and how Settlix looks."
       />
 
       <div className="grid items-start gap-4 @4xl/main:grid-cols-2">
@@ -68,8 +69,8 @@ async function WorkspaceCard() {
   const { workspace, role } = member
 
   const permissions = [
-    { label: "Investigate cases", allowed: can.investigate(role) },
-    { label: "Approve sandbox refunds", allowed: can.approveRefunds(role) },
+    { label: "Check requests with Claude", allowed: can.investigate(role) },
+    { label: "Approve refunds", allowed: can.approveRefunds(role) },
     { label: "Manage return policies", allowed: can.managePolicies(role) },
   ]
 
@@ -77,11 +78,11 @@ async function WorkspaceCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
-          Workspace
+          Your store
           {workspace.isDemo ? <Badge variant="outline">Demo</Badge> : null}
         </CardTitle>
         <CardDescription>
-          Every case, order, policy, and refund belongs to this workspace.
+          Every request, order, policy, and refund belongs to this store.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -100,23 +101,38 @@ async function WorkspaceCard() {
               disabled
             />
             <FieldDescription>
-              The sandbox demo processes {workspace.defaultCurrency} payments.
+              Test payments in this store are in {workspace.defaultCurrency}.
             </FieldDescription>
           </Field>
           <Field>
             <FieldTitle>Your role</FieldTitle>
-            <div className="flex flex-wrap gap-2">
-              <Badge>{roleLabels[role]}</Badge>
+            <p className="text-lg font-semibold">{roleLabels[role]}</p>
+            <ul className="flex flex-col gap-2.5">
               {permissions.map((permission) => (
-                <Badge
+                <li
                   key={permission.label}
-                  variant={permission.allowed ? "secondary" : "outline"}
+                  className="flex items-center gap-2.5 text-[0.9375rem]"
                 >
-                  {permission.allowed ? "Can" : "Cannot"}{" "}
-                  {permission.label.toLowerCase()}
-                </Badge>
+                  {permission.allowed ? (
+                    <CircleCheckIcon
+                      aria-hidden
+                      className="size-5 shrink-0 text-success"
+                    />
+                  ) : (
+                    <CircleMinusIcon
+                      aria-hidden
+                      className="size-5 shrink-0 text-muted-foreground"
+                    />
+                  )}
+                  <span>
+                    <span className="sr-only">
+                      {permission.allowed ? "Allowed: " : "Not allowed: "}
+                    </span>
+                    {permission.label}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </Field>
         </FieldGroup>
       </CardContent>

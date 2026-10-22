@@ -46,7 +46,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { requestCategoryLabels } from "@/lib/domain/labels"
 
 const categoryItems = [
-  { label: "Choose a category", value: null },
+  { label: "Choose a reason", value: null },
   ...Object.entries(requestCategoryLabels).map(([value, label]) => ({
     label,
     value,
@@ -73,15 +73,15 @@ export function CreateCaseDialog({
     <Dialog>
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
         <FilePlus2Icon data-icon="inline-start" />
-        Create case
+        Create request
       </DialogTrigger>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <form action={formAction} className="flex flex-col gap-6">
           <DialogHeader>
-            <DialogTitle>Open a refund case</DialogTitle>
+            <DialogTitle>Add a refund request</DialogTitle>
             <DialogDescription>
-              For sandbox payment {orderReference} ({amountLabel}). The case is
-              linked to this payment&apos;s PayPal capture.
+              For test payment {orderReference} ({amountLabel}). The request is
+              linked to this PayPal payment, so it can be refunded.
             </DialogDescription>
           </DialogHeader>
 
@@ -90,7 +90,7 @@ export function CreateCaseDialog({
           {state.error ? (
             <Alert variant="destructive">
               <AlertCircleIcon />
-              <AlertTitle>Case not created</AlertTitle>
+              <AlertTitle>Request not created</AlertTitle>
               <AlertDescription>{state.error}</AlertDescription>
             </Alert>
           ) : null}
@@ -123,7 +123,7 @@ export function CreateCaseDialog({
               <FieldError>{errors.customerEmail}</FieldError>
             </Field>
             <Field data-invalid={invalid("requestCategory")}>
-              <FieldLabel htmlFor="requestCategory">Category</FieldLabel>
+              <FieldLabel htmlFor="requestCategory">Reason</FieldLabel>
               <Select items={categoryItems} name="requestCategory">
                 <SelectTrigger
                   id="requestCategory"
@@ -144,7 +144,7 @@ export function CreateCaseDialog({
               <FieldError>{errors.requestCategory}</FieldError>
             </Field>
             <Field data-invalid={invalid("claimedIssue")}>
-              <FieldLabel htmlFor="claimedIssue">Claimed issue</FieldLabel>
+              <FieldLabel htmlFor="claimedIssue">Problem</FieldLabel>
               <Input
                 id="claimedIssue"
                 name="claimedIssue"
@@ -166,13 +166,14 @@ export function CreateCaseDialog({
                 required
               />
               <FieldDescription>
-                Paste it as received. It is stored as untrusted input.
+                Paste it as the customer wrote it. Claude reads it as
+                information, never as instructions.
               </FieldDescription>
               <FieldError>{errors.customerMessage}</FieldError>
             </Field>
             <Field data-invalid={invalid("requestedAmount")}>
               <FieldLabel htmlFor="requestedAmount">
-                Requested amount (optional)
+                Amount asked for (optional)
               </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
@@ -191,7 +192,7 @@ export function CreateCaseDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="supportingDetails">
-                Merchant notes (optional)
+                Your notes (optional)
               </FieldLabel>
               <Textarea
                 id="supportingDetails"
@@ -207,7 +208,7 @@ export function CreateCaseDialog({
             </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending ? <Spinner data-icon="inline-start" /> : null}
-              {pending ? "Creating…" : "Create case"}
+              {pending ? "Creating…" : "Create request"}
             </Button>
           </DialogFooter>
         </form>

@@ -39,7 +39,7 @@ test("E2E-06 a model failure preserves the case and allows no refund", async ({
     expect(response.status()).toBe(502)
     const alert = page
       .getByRole("alert")
-      .filter({ hasText: "Investigation failed" })
+      .filter({ hasText: "The check didn't finish" })
     await expect(alert).toContainText(message)
     expect(await caseStatus(created.id)).toBe("NEW")
   }

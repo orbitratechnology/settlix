@@ -23,7 +23,7 @@ export function CheckStatusButton({ orderId }: { orderId: string }) {
             const outcome = await checkPaymentStatus(orderId)
             setMessage(
               outcome.status === "captured"
-                ? "Captured."
+                ? "Paid."
                 : outcome.status === "pending"
                   ? "Still pending at PayPal."
                   : outcome.message,

@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react"
 import {
   AlertCircleIcon,
+  ChevronDownIcon,
   CircleSlashIcon,
   FileQuestionIcon,
   MessageSquarePlusIcon,
@@ -26,8 +27,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Field,
   FieldDescription,
@@ -46,7 +54,8 @@ type ActionFn = (
 function TextActionDialog({
   caseId,
   action,
-  trigger,
+  open,
+  onOpenChange,
   title,
   description,
   label,
@@ -57,7 +66,8 @@ function TextActionDialog({
 }: {
   caseId: string
   action: ActionFn
-  trigger: React.ReactElement
+  open: boolean
+  onOpenChange: (open: boolean) => void
   title: string
   description: string
   label: string
@@ -66,20 +76,18 @@ function TextActionDialog({
   submitLabel: string
   destructive?: boolean
 }) {
-  const [open, setOpen] = useState(false)
   const [state, formAction, pending] = useActionState<
     CaseActionState,
     FormData
   >(async (previous, formData) => {
     const result = await action(caseId, previous, formData)
-    if (result.done) setOpen(false)
+    if (result.done) onOpenChange(false)
     return result
   }, {})
   const id = `case-action-${title.replace(/\W+/g, "-").toLowerCase()}`
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <form action={formAction} className="flex flex-col gap-6">
           <DialogHeader>
@@ -125,86 +133,113 @@ function TextActionDialog({
   )
 }
 
-/** Non-money case actions. Each one is recorded in the audit trail. */
+type ActionKey = "note" | "requestEvidence" | "sendToReview" | "decline"
+
+/**
+ * Non-money actions on a request, in one "More actions" menu. Each opens a
+ * short form and is recorded in the activity log.
+ */
 export function CaseActions({
   caseId,
   allowed,
   missingEvidence,
 }: {
   caseId: string
-  allowed: {
-    note: boolean
-    requestEvidence: boolean
-    sendToReview: boolean
-    decline: boolean
-  }
-  /** Prefills the evidence request from the latest investigation. */
+  allowed: Record<ActionKey, boolean>
+  /** Prefills the information request from Claude's latest check. */
   missingEvidence: string[]
 }) {
+  const [openAction, setOpenAction] = useState<ActionKey | null>(null)
+  const dialogProps = (key: ActionKey) => ({
+    caseId,
+    open: openAction === key,
+    onOpenChange: (open: boolean) => setOpenAction(open ? key : null),
+  })
+  if (!Object.values(allowed).some(Boolean)) return null
+
   return (
     <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="outline" size="lg" />}>
+          More actions
+          <ChevronDownIcon data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-60">
+          <DropdownMenuGroup>
+            {allowed.note ? (
+              <DropdownMenuItem onClick={() => setOpenAction("note")}>
+                <MessageSquarePlusIcon />
+                Add a note
+              </DropdownMenuItem>
+            ) : null}
+            {allowed.requestEvidence ? (
+              <DropdownMenuItem
+                onClick={() => setOpenAction("requestEvidence")}
+              >
+                <FileQuestionIcon />
+                Ask the customer for more
+              </DropdownMenuItem>
+            ) : null}
+            {allowed.sendToReview ? (
+              <DropdownMenuItem onClick={() => setOpenAction("sendToReview")}>
+                <UserRoundSearchIcon />
+                Send for review
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
+          {allowed.decline ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setOpenAction("decline")}
+              >
+                <CircleSlashIcon />
+                Decline the request
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       {allowed.note ? (
         <TextActionDialog
-          caseId={caseId}
+          {...dialogProps("note")}
           action={addCaseNote}
-          trigger={
-            <Button variant="outline">
-              <MessageSquarePlusIcon data-icon="inline-start" />
-              Add note
-            </Button>
-          }
-          title="Add a merchant note"
-          description="Notes are part of the case evidence. Re-run the investigation afterwards so the recommendation uses them."
+          title="Add a note"
+          description="Notes become part of the request. Check the request again afterwards so Claude takes them into account."
           label="Note"
-          hint="For example: “Customer's photo received in the help desk; it shows the cracked carafe.”"
+          hint="For example: “The customer's photo arrived by email; it shows the cracked carafe.”"
           submitLabel="Add note"
         />
       ) : null}
       {allowed.requestEvidence ? (
         <TextActionDialog
-          caseId={caseId}
+          {...dialogProps("requestEvidence")}
           action={requestEvidence}
-          trigger={
-            <Button variant="outline">
-              <FileQuestionIcon data-icon="inline-start" />
-              Request evidence
-            </Button>
-          }
-          title="Request evidence"
-          description="Records what you asked the customer for and moves the case to “Needs evidence”. Settlix doesn't send the message; copy the reply draft to your help desk."
-          label="Evidence requested"
+          title="Ask the customer for more"
+          description="Saves what you asked for and moves the request to “Waiting on customer”. Settlix doesn't send the message: copy the drafted reply into your email or help desk."
+          label="What you asked for"
           defaultText={missingEvidence.join("\n")}
-          submitLabel="Record request"
+          submitLabel="Save"
         />
       ) : null}
       {allowed.sendToReview ? (
         <TextActionDialog
-          caseId={caseId}
+          {...dialogProps("sendToReview")}
           action={sendToReview}
-          trigger={
-            <Button variant="outline">
-              <UserRoundSearchIcon data-icon="inline-start" />
-              Send to review
-            </Button>
-          }
-          title="Send to manual review"
-          description="Moves the case to “Needs review” so a merchant decides. No refund can be approved meanwhile."
+          title="Send for review"
+          description="Moves the request to “Needs your review” so a person decides. No refund can be approved in the meantime."
           label="Reason"
-          submitLabel="Send to review"
+          submitLabel="Send for review"
         />
       ) : null}
       {allowed.decline ? (
         <TextActionDialog
-          caseId={caseId}
+          {...dialogProps("decline")}
           action={declineCase}
-          trigger={
-            <Button variant="outline">
-              <CircleSlashIcon data-icon="inline-start" />
-              Decline
-            </Button>
-          }
           title="Decline this request?"
-          description="Closes the case as “Not eligible” without a refund. It can be reopened by re-running the investigation or sending it to review."
+          description="Closes the request as “Not eligible” without a refund. You can reopen it later by checking it again or sending it for review."
           label="Reason"
           submitLabel="Decline request"
           destructive

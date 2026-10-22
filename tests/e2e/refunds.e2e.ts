@@ -105,7 +105,7 @@ test("E2E-01 full refund to receipt, with E2E-04 and a double click", async ({
 
   await dialog.getByRole("link", { name: "Open receipt" }).click()
   await expect(page).toHaveURL(new RegExp(`/receipts/${caseId}$`))
-  await expect(page.getByText("COMPLETED · 24.00 USD")).toBeVisible()
+  await expect(page.getByText("Completed, 24.00 USD")).toBeVisible()
   await expect(page.getByText(refundId).first()).toBeVisible()
   await expect(page.getByText(captureId).first()).toBeVisible()
 })
@@ -207,7 +207,7 @@ test("E2E-07 a PayPal decline, then a lost response reconciled once", async ({
   )
   const lost = await approveInDialog(page)
   await undoLost()
-  await expect(lost.result).toContainText("recovery required")
+  await expect(lost.result).toContainText("Status unknown")
   await lost.dialog.getByRole("button", { name: "Close" }).click()
   expect(await caseStatus(caseId)).toBe("RECOVERY_REQUIRED")
   await expect(

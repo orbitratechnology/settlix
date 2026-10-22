@@ -1,16 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import {
-  ArrowLeftIcon,
-  BadgeCheckIcon,
-  CircleAlertIcon,
-  ExternalLinkIcon,
-} from "lucide-react"
+import { ArrowLeftIcon, BadgeCheckIcon, CircleAlertIcon } from "lucide-react"
 
+import { Disclosure } from "@/components/cases/case-facts"
 import { CaseTimeline } from "@/components/cases/case-timeline"
 import { CopyButton } from "@/components/copy-button"
-import { FactList } from "@/components/fact-list"
 import { ReplyDraft } from "@/components/investigations/reply-draft"
 import { PageContainer, PageHeader } from "@/components/page-header"
 import { OriginBadge } from "@/components/status-badges"
@@ -23,7 +18,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { getReceipt } from "@/lib/data/receipts"
 import {
   eligibilityOutcomeMeta,
@@ -45,11 +39,37 @@ import {
 import { refundIssueMessages } from "@/lib/refunds/outcome"
 
 export const metadata: Metadata = {
-  title: "Resolution Receipt",
+  title: "Receipt",
 }
 
-function Mono({ children }: { children: React.ReactNode }) {
-  return <span className="font-mono text-xs break-all">{children}</span>
+function Reference({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono text-sm break-all">{children}</span>
+}
+
+/** A receipt's torn bottom edge. */
+const tornBottom = (() => {
+  const teeth = 40
+  const points = ["0 0", "100% 0"]
+  for (let i = teeth; i >= 0; i--) {
+    points.push(
+      `${(i / teeth) * 100}% ${i % 2 === 0 ? "100%" : "calc(100% - 10px)"}`,
+    )
+  }
+  return `polygon(${points.join(", ")})`
+})()
+
+const stateText: Record<ReturnType<typeof receiptState>["tone"], string> = {
+  default: "text-foreground",
+  secondary: "text-foreground",
+  outline: "text-foreground",
+  info: "text-accent-foreground dark:text-primary",
+  success: "text-success",
+  warning: "text-warning-foreground dark:text-warning",
+  destructive: "text-destructive",
+}
+
+function titleCase(value: string) {
+  return value.charAt(0) + value.slice(1).toLowerCase()
 }
 
 export default async function ReceiptPage({
@@ -65,22 +85,25 @@ export default async function ReceiptPage({
   return (
     <PageContainer>
       <PageHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            Receipt {receipt.caseNumber}
+        title={`Receipt for ${receipt.customerName}`}
+        description={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <Badge variant={state.tone}>{state.label}</Badge>
             <OriginBadge origin={receipt.origin} />
+            <span>
+              Request {receipt.caseNumber}.{" "}
+              {receipt.merchantName.replace(/\.$/, "")}.
+            </span>
           </span>
         }
-        description={`${receipt.merchantName} · PayPal Sandbox · built from stored records`}
         actions={
           <>
             <Link
               href={`/cases/${receipt.caseId}`}
-              className={buttonVariants({ variant: "outline" })}
+              className={buttonVariants({ variant: "outline", size: "lg" })}
             >
               <ArrowLeftIcon data-icon="inline-start" />
-              Case
+              Back to the request
             </Link>
             <CopyButton
               value={receiptSummaryText(receipt)}
@@ -90,24 +113,19 @@ export default async function ReceiptPage({
         }
       />
 
-      <div className="grid gap-4 @4xl/main:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <OutcomeCard receipt={receipt} state={state} />
-          <DecisionCard receipt={receipt} />
-          <PolicyEvidenceCard receipt={receipt} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-4">
-          <IdentifiersCard receipt={receipt} />
+      <div className="grid items-start gap-6 @4xl/main:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <ReceiptSheet receipt={receipt} state={state} />
+        <div className="flex min-w-0 flex-col gap-6">
           {reply ? (
             <Card>
               <CardHeader>
-                <CardTitle>Customer response</CardTitle>
+                <CardTitle>Reply to the customer</CardTitle>
                 <CardDescription>
                   {receipt.attempt?.origin === "app" &&
                   (receipt.attempt.status === "COMPLETED" ||
                     receipt.attempt.status === "PENDING")
-                    ? "Written from the PayPal result, with no promised dates."
-                    : "Claude's draft from the investigation."}
+                    ? "Written from PayPal's answer. It promises no dates."
+                    : "Claude's draft. Edit it, then copy it into your email."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -115,6 +133,7 @@ export default async function ReceiptPage({
               </CardContent>
             </Card>
           ) : null}
+          <ReasonsCard receipt={receipt} />
         </div>
       </div>
 
@@ -123,143 +142,189 @@ export default async function ReceiptPage({
   )
 }
 
-function OutcomeCard({
+function Row({
+  label,
+  children,
+  strong,
+}: {
+  label: string
+  children: React.ReactNode
+  strong?: boolean
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-1.5">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd
+        className={
+          strong
+            ? "min-w-0 text-right text-lg font-bold"
+            : "min-w-0 text-right font-medium"
+        }
+      >
+        {children}
+      </dd>
+    </div>
+  )
+}
+
+/** The receipt itself: outcome, money, approval, and PayPal's references. */
+function ReceiptSheet({
   receipt,
   state,
 }: {
   receipt: Receipt
   state: ReturnType<typeof receiptState>
 }) {
-  const { attempt, investigation } = receipt
-  const rec = investigation?.stored.recommendation
-  const recommended = rec
-    ? `${proposedActionMeta[rec.proposedAction].label}${
-        rec.proposedAmountMinor !== null && rec.currencyCode
-          ? ` ${formatMoney(rec.proposedAmountMinor, rec.currencyCode)}`
-          : ""
-      }`
-    : "No recommendation"
+  const { attempt, order } = receipt
+  const live = attempt?.origin === "app"
+  const money = (minor: number, currency = receipt.currency) =>
+    formatMoney(minor, currency)
 
   return (
-    <Card className="@container/card">
-      <CardHeader>
-        <CardTitle>Outcome</CardTitle>
-        <CardDescription>{state.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-3 @md/card:grid-cols-2">
-          <div className="flex flex-col gap-1 rounded-lg border p-3">
-            <span className="text-xs text-muted-foreground">
-              Recommended (AI, advisory)
-            </span>
-            <span className="text-sm font-medium">{recommended}</span>
-          </div>
-          <div className="flex flex-col gap-1 rounded-lg border p-3">
-            <span className="text-xs text-muted-foreground">
-              Actual result (PayPal)
-            </span>
-            <span className="text-sm font-medium">
-              {attempt?.origin === "app"
-                ? `${attempt.paypalStatus ?? "No answer yet"}${
+    <article
+      aria-label="Receipt"
+      className="flex min-w-0 flex-col gap-6 bg-card px-6 pt-7 pb-12 text-[0.9375rem] text-card-foreground ring-1 ring-foreground/10 sm:px-8"
+      style={{ clipPath: tornBottom }}
+    >
+      <header className="flex flex-col gap-2">
+        <p
+          className={`text-2xl font-bold tracking-tight ${stateText[state.tone]}`}
+        >
+          {state.label}
+        </p>
+        <p className="text-base text-muted-foreground">{state.description}</p>
+        {live ? (
+          <p className="pt-2 text-4xl font-bold tracking-tight">
+            {money(attempt.approvedMinor, attempt.currency)}
+          </p>
+        ) : null}
+      </header>
+
+      <dl className="flex flex-col border-t border-dashed pt-4">
+        <Row label="Customer">{receipt.customerName}</Row>
+        <Row label="Order">{order.reference}</Row>
+        <Row label="Item">{order.description}</Row>
+        <Row label="Reason">{requestCategoryLabels[receipt.category]}</Row>
+        <Row label="Problem">{receipt.claimedIssue}</Row>
+      </dl>
+
+      <dl className="flex flex-col border-t border-dashed pt-4">
+        <Row label="Customer paid">
+          {money(order.capturedMinor, order.currency)}
+        </Row>
+        <Row label="Customer asked for">
+          {receipt.requestedMinor === null
+            ? "No amount given"
+            : money(receipt.requestedMinor)}
+        </Row>
+        <Row label="Payment now">{paymentStateLabels[order.paymentState]}</Row>
+        {live ? (
+          <>
+            <Row label="Approved refund" strong>
+              {money(attempt.approvedMinor, attempt.currency)}
+            </Row>
+            <Row label="PayPal says">
+              {attempt.paypalStatus
+                ? `${titleCase(attempt.paypalStatus)}${
                     attempt.paypalAmount
-                      ? ` · ${attempt.paypalAmount.value} ${attempt.paypalAmount.currency_code}`
+                      ? `, ${attempt.paypalAmount.value} ${attempt.paypalAmount.currency_code}`
                       : ""
                   }`
-                : attempt?.origin === "seed"
-                  ? "None (demo record)"
-                  : "No refund issued"}
-            </span>
-          </div>
-        </div>
-
-        {attempt?.origin === "app" ? (
-          <FactList
-            facts={[
-              {
-                label: "Approved amount",
-                value: formatMoney(attempt.approvedMinor, attempt.currency),
-              },
-              { label: "Approved by", value: attempt.approvedBy ?? "Unknown" },
-              {
-                label: "Approved at",
-                value: formatDateTime(attempt.approvedAt),
-              },
-              {
-                label: "Checks at approval",
-                value: attempt.approvalOutcome
-                  ? eligibilityOutcomeMeta[attempt.approvalOutcome].label
-                  : "Not recorded",
-              },
-              {
-                label: "Refund attempt",
-                value: (
-                  <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                    <Mono>{attempt.id}</Mono>
-                    <Badge
-                      variant={refundAttemptStatusMeta[attempt.status].tone}
-                    >
-                      {refundAttemptStatusMeta[attempt.status].label}
-                    </Badge>
-                  </span>
-                ),
-              },
-              {
-                label: "PayPal refund ID",
-                value: attempt.paypalRefundId ? (
-                  <Mono>{attempt.paypalRefundId}</Mono>
-                ) : (
-                  <span className="text-muted-foreground">Not returned</span>
-                ),
-              },
-              ...(attempt.responseCode
-                ? [{ label: "PayPal HTTP status", value: attempt.responseCode }]
-                : []),
-              ...(attempt.errorCode
-                ? [
-                    {
-                      label: "PayPal issue",
-                      value: (
-                        <span className="text-destructive">
-                          {refundIssueMessages[attempt.errorCode] ??
-                            attempt.errorCode}
-                        </span>
-                      ),
-                    },
-                  ]
-                : []),
-              ...(attempt.debugId
-                ? [
-                    {
-                      label: "PayPal debug ID",
-                      value: <Mono>{attempt.debugId}</Mono>,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        ) : attempt?.origin === "seed" ? (
-          <p className="text-sm text-muted-foreground">
-            This refund record was seeded for the demo. No PayPal call was made.
-          </p>
+                : "No answer yet"}
+            </Row>
+            {attempt.errorCode ? (
+              <Row label="PayPal's reason">
+                <span className="text-destructive">
+                  {refundIssueMessages[attempt.errorCode] ?? attempt.errorCode}
+                </span>
+              </Row>
+            ) : null}
+          </>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No refund has been approved or issued for this case.
-          </p>
+          <Row label="Refund">
+            {attempt?.origin === "seed"
+              ? "Demo record, no PayPal refund"
+              : "None issued"}
+          </Row>
         )}
-      </CardContent>
-    </Card>
+      </dl>
+
+      {live ? (
+        <dl className="flex flex-col border-t border-dashed pt-4">
+          <Row label="Approved by">{attempt.approvedBy ?? "Unknown"}</Row>
+          <Row label="Approved on">{formatDateTime(attempt.approvedAt)}</Row>
+          <Row label="Checks when approved">
+            {attempt.approvalOutcome
+              ? eligibilityOutcomeMeta[attempt.approvalOutcome].label
+              : "Not recorded"}
+          </Row>
+        </dl>
+      ) : null}
+
+      <section className="flex flex-col gap-1 border-t border-dashed pt-4">
+        <h2 className="text-base font-semibold">PayPal references</h2>
+        <p className="text-sm text-muted-foreground">
+          Use these to find this payment and refund in PayPal.
+        </p>
+        <dl className="flex flex-col">
+          <Row label="Refund">
+            {live && attempt.paypalRefundId ? (
+              <Reference>{attempt.paypalRefundId}</Reference>
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </Row>
+          <Row label="Payment">
+            {order.paypalCaptureId ? (
+              <Reference>{order.paypalCaptureId}</Reference>
+            ) : (
+              <span className="text-muted-foreground">Not linked</span>
+            )}
+          </Row>
+          <Row label="Order">
+            {order.paypalOrderId ? (
+              <Reference>{order.paypalOrderId}</Reference>
+            ) : (
+              <span className="text-muted-foreground">None</span>
+            )}
+          </Row>
+        </dl>
+      </section>
+
+      {live ? (
+        <Disclosure label="Technical details">
+          <dl className="flex flex-col text-sm">
+            <Row label="Refund attempt">
+              <Reference>{attempt.id}</Reference>
+            </Row>
+            <Row label="Attempt status">
+              {refundAttemptStatusMeta[attempt.status].label}
+            </Row>
+            {attempt.responseCode ? (
+              <Row label="PayPal HTTP status">{attempt.responseCode}</Row>
+            ) : null}
+            {attempt.debugId ? (
+              <Row label="PayPal debug ID">
+                <Reference>{attempt.debugId}</Reference>
+              </Row>
+            ) : null}
+          </dl>
+        </Disclosure>
+      ) : null}
+    </article>
   )
 }
 
-function DecisionCard({ receipt }: { receipt: Receipt }) {
+/** Why the request was decided this way: Claude's suggestion and the rules. */
+function ReasonsCard({ receipt }: { receipt: Receipt }) {
   const investigation = receipt.investigation
   if (!investigation) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Decision</CardTitle>
+          <CardTitle>Why</CardTitle>
           <CardDescription>
-            No investigation has been run for this case.
+            Claude hasn&apos;t checked this request yet.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -267,203 +332,133 @@ function DecisionCard({ receipt }: { receipt: Receipt }) {
   }
   const rec = investigation.stored.recommendation
   const checks = eligibilityOutcomeMeta[investigation.eligibility.outcome]
-  const flags = [
+  const issues = [
     ...rec.evidenceMissing.map((item) => `Missing: ${item}`),
-    ...rec.contradictions.map((item) => `Contradiction: ${item}`),
+    ...rec.contradictions.map((item) => `Doesn't add up: ${item}`),
     ...rec.riskFlags.map(
       (flag) => `${riskFlagLabels[flag.code]}: ${flag.detail}`,
     ),
   ]
+  const citations = investigation.stored.citations
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Decision basis</CardTitle>
-        <CardDescription>
-          Claude&apos;s recommendation and the deterministic checks it was held
-          to.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4 text-sm">
-        <div className="flex flex-col gap-1.5">
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge variant={proposedActionMeta[rec.proposedAction].tone}>
-              {proposedActionMeta[rec.proposedAction].label}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {investigation.modelId} · prompt {investigation.promptVersion} ·{" "}
-              {formatDateTime(investigation.createdAt)}
-            </span>
-          </span>
-          <p>{rec.summary}</p>
-          <p className="text-muted-foreground">{rec.explanation}</p>
-        </div>
-        <Separator />
-        <div className="flex flex-col gap-1.5">
-          <span className="font-medium">Evidence and uncertainty</span>
-          {flags.length === 0 ? (
-            <p className="text-muted-foreground">
-              No missing evidence, contradictions, or risk flags.
-            </p>
-          ) : (
-            <ul className="flex list-disc flex-col gap-1 pl-4 text-muted-foreground">
-              {flags.map((flag) => (
-                <li key={flag}>{flag}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <Separator />
-        <div className="flex flex-col gap-1.5">
-          <span className="font-medium">Deterministic checks</span>
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge variant={checks.tone}>{checks.label}</Badge>
-            <span className="text-muted-foreground">
-              {investigation.eligibility.summary}
-            </span>
-          </span>
-          {investigation.eligibility.reasonCodes.length > 0 ? (
-            <span className="flex flex-wrap gap-1">
-              {investigation.eligibility.reasonCodes.map((code) => (
-                <Badge key={code} variant="outline" className="font-mono">
-                  {code}
-                </Badge>
-              ))}
-            </span>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function PolicyEvidenceCard({ receipt }: { receipt: Receipt }) {
-  const citations = receipt.investigation?.stored.citations ?? []
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Policy evidence</CardTitle>
-        <CardDescription>
-          Clauses quoted by the recommendation, checked against the published
-          policy version.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {citations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No clauses cited.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {citations.map((citation, index) => (
-              <li
-                key={`${citation.clauseKey}-${index}`}
-                className="flex flex-col gap-1.5 rounded-lg border p-3 text-sm"
-              >
-                <span className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="font-mono">
-                    {citation.clauseKey}
-                  </Badge>
-                  <span className="font-medium">
-                    {citation.clauseTitle ?? "Unknown clause"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {citation.policyName ?? "Unknown policy"} v
-                    {citation.policyVersion}
-                  </span>
-                </span>
-                <blockquote className="border-l-2 pl-3 italic">
-                  {citation.supportingQuote}
-                </blockquote>
-                <span className="flex flex-wrap items-center justify-between gap-2">
-                  {citation.valid ? (
-                    <Badge variant="success">
-                      <BadgeCheckIcon data-icon="inline-start" />
-                      Matches stored clause
-                    </Badge>
-                  ) : (
-                    <Badge variant="destructive">
-                      <CircleAlertIcon data-icon="inline-start" />
-                      {citation.problem
-                        ? citationProblemLabels[citation.problem]
-                        : "Not verified"}
-                    </Badge>
-                  )}
-                  {citation.valid ? (
-                    <Link
-                      href={`/policies/${citation.policyId}#clause-${citation.clauseKey}`}
-                      className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Open clause
-                      <ExternalLinkIcon aria-hidden className="size-3.5" />
-                    </Link>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function IdentifiersCard({ receipt }: { receipt: Receipt }) {
-  const { order } = receipt
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Case &amp; payment</CardTitle>
+        <CardTitle>Why</CardTitle>
         <CardDescription>
-          {order.origin === "seed"
-            ? "Seeded demo order, not linked to PayPal."
-            : "Mapped PayPal Sandbox order and capture."}
+          Claude&apos;s suggestion, the rules it quoted, and Settlix&apos;s
+          checks.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <FactList
-          facts={[
-            { label: "Case", value: receipt.caseNumber },
-            { label: "Customer", value: receipt.customerName },
-            {
-              label: "Category",
-              value: requestCategoryLabels[receipt.category],
-            },
-            { label: "Claimed issue", value: receipt.claimedIssue },
-            {
-              label: "Requested",
-              value:
-                receipt.requestedMinor === null
-                  ? "Not stated"
-                  : formatMoney(receipt.requestedMinor, receipt.currency),
-            },
-            { label: "Opened", value: formatDateTime(receipt.openedAt) },
-            { label: "Order", value: order.reference },
-            { label: "Item", value: order.description },
-            {
-              label: "Captured",
-              value: formatMoney(order.capturedMinor, order.currency),
-            },
-            {
-              label: "Payment state",
-              value: paymentStateLabels[order.paymentState],
-            },
-            {
-              label: "PayPal order ID",
-              value: order.paypalOrderId ? (
-                <Mono>{order.paypalOrderId}</Mono>
-              ) : (
-                "None"
-              ),
-            },
-            {
-              label: "PayPal capture ID",
-              value: order.paypalCaptureId ? (
-                <Mono>{order.paypalCaptureId}</Mono>
-              ) : (
-                "Not linked"
-              ),
-            },
-          ]}
-        />
+      <CardContent className="flex flex-col gap-5 text-[0.9375rem]">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-muted-foreground">
+            Claude suggested
+          </span>
+          <span className="text-lg font-semibold">
+            {proposedActionMeta[rec.proposedAction].label}
+            {rec.proposedAmountMinor !== null && rec.currencyCode
+              ? `, ${formatMoney(rec.proposedAmountMinor, rec.currencyCode)}`
+              : ""}
+          </span>
+          <p>{rec.summary}</p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-muted-foreground">
+            Settlix&apos;s checks
+          </span>
+          <span className="flex flex-wrap items-center gap-2">
+            <Badge variant={checks.tone}>{checks.label}</Badge>
+          </span>
+          <p className="text-muted-foreground">
+            {investigation.eligibility.summary}
+          </p>
+        </div>
+
+        {citations.length > 0 ? (
+          <div className="flex flex-col gap-2.5">
+            <span className="text-sm text-muted-foreground">
+              Rules quoted from the return policy
+            </span>
+            <ul className="flex flex-col gap-3">
+              {citations.map((citation, index) => (
+                <li
+                  key={`${citation.clauseKey}-${index}`}
+                  className="flex flex-col gap-2 rounded-xl bg-muted px-4 py-3"
+                >
+                  <span className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      Rule {citation.clauseKey}:{" "}
+                      {citation.clauseTitle ?? "Unknown rule"}
+                    </span>
+                    {citation.valid ? (
+                      <Badge variant="success">
+                        <BadgeCheckIcon data-icon="inline-start" />
+                        Quote checked
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        <CircleAlertIcon data-icon="inline-start" />
+                        {citation.problem
+                          ? citationProblemLabels[citation.problem]
+                          : "Not verified"}
+                      </Badge>
+                    )}
+                  </span>
+                  <blockquote>“{citation.supportingQuote}”</blockquote>
+                  {citation.valid ? (
+                    <Link
+                      href={`/policies/${citation.policyId}#clause-${citation.clauseKey}`}
+                      className="w-fit font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Read the rule in {citation.policyName ?? "the policy"},
+                      version {citation.policyVersion}
+                    </Link>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {issues.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm text-muted-foreground">
+              Open questions at the time
+            </span>
+            <ul className="flex list-disc flex-col gap-1 pl-5">
+              {issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <Disclosure label="Details for the record">
+          <dl className="grid gap-1.5 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Checked</dt>
+              <dd>{formatDateTime(investigation.createdAt)}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Model</dt>
+              <dd>{investigation.modelId}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Prompt version</dt>
+              <dd>{investigation.promptVersion}</dd>
+            </div>
+            {investigation.eligibility.reasonCodes.length > 0 ? (
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Reason codes</dt>
+                <dd className="font-mono">
+                  {investigation.eligibility.reasonCodes.join(", ")}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </Disclosure>
       </CardContent>
     </Card>
   )

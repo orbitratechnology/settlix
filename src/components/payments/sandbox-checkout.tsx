@@ -106,7 +106,7 @@ function PayPalButtonArea({
       onApprove={async ({ orderId }) => {
         onNotice({
           tone: "pending",
-          title: "Capturing payment…",
+          title: "Confirming the payment…",
           body: "Confirming the result with PayPal.",
         })
         const outcome = await postJson<CheckoutOutcome>(
@@ -115,14 +115,14 @@ function PayPalButtonArea({
         if (outcome.status === "captured") {
           onNotice({
             tone: "success",
-            title: "Payment captured",
-            body: `PayPal Sandbox capture ${outcome.captureId} completed. Open a refund case for it below.`,
+            title: "Payment received",
+            body: `PayPal confirmed the payment (reference ${outcome.captureId}). Turn it into a refund request below.`,
           })
         } else if (outcome.status === "pending") {
           onNotice({
             tone: "info",
             title: "Payment pending",
-            body: `PayPal reports capture ${outcome.captureId} as pending. It isn't paid yet.`,
+            body: `PayPal says the payment (reference ${outcome.captureId}) is still pending. It isn't paid yet.`,
           })
         } else {
           onNotice({

@@ -61,13 +61,13 @@ const resultDisplay: Record<
     destructive: false,
   },
   pending: {
-    title: "Refund pending at PayPal",
+    title: "Refund in progress at PayPal",
     icon: ClockIcon,
     destructive: false,
   },
   failed: { title: "Refund failed", icon: CircleAlertIcon, destructive: true },
   recovery_required: {
-    title: "Outcome unknown: recovery required",
+    title: "Status unknown: check with PayPal",
     icon: ShieldAlertIcon,
     destructive: true,
   },
@@ -168,56 +168,56 @@ export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
         }
       }}
     >
-      <AlertDialogTrigger render={<Button className="w-full" />}>
+      <AlertDialogTrigger render={<Button size="lg" className="w-full" />}>
         Approve and issue refund
       </AlertDialogTrigger>
       <AlertDialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            Refund {details.amount} to the buyer?
+          <AlertDialogTitle className="text-xl">
+            Refund {details.amount} to the customer?
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            Settlix re-checks eligibility and the amount, records your approval,
-            then asks PayPal to refund capture {details.captureId}. A completed
-            refund can&apos;t be undone.
+          <AlertDialogDescription className="text-base">
+            Settlix checks everything once more, saves your approval, and then
+            asks PayPal to send the money back. A completed refund can&apos;t be
+            undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="@container/card flex flex-col gap-4">
           <FactList
             facts={[
-              { label: "Case", value: details.caseNumber },
+              { label: "Request", value: details.caseNumber },
               { label: "Order", value: details.orderReference },
-              { label: "Captured", value: details.captured },
-              { label: "Refunded before", value: details.refundedBefore },
+              { label: "Customer paid", value: details.captured },
+              { label: "Already refunded", value: details.refundedBefore },
               {
                 label: "This refund",
                 value: (
-                  <span className="text-base tabular-nums">
+                  <span className="text-lg font-bold">
                     {details.amount} {details.currencyCode}
                   </span>
                 ),
               },
-              { label: "Refundable after", value: details.remainingAfter },
+              { label: "Left after this", value: details.remainingAfter },
             ]}
           />
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Basis</span>
+            <span className="font-medium">Why</span>
             <span className="flex flex-wrap gap-1">
               {details.citations.map((key) => (
-                <Badge key={key} variant="outline" className="font-mono">
-                  {key}
+                <Badge key={key} variant="outline">
+                  Rule {key}
                 </Badge>
               ))}
-              <Badge variant="success">All checks passed</Badge>
+              <Badge variant="success">Every check passed</Badge>
             </span>
             <p className="line-clamp-4 text-muted-foreground">
               {details.explanation}
             </p>
           </div>
-          <p className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">
-            PayPal Sandbox: real API call, test money. The result shown is
-            exactly what PayPal returns.
+          <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+            This is the PayPal Sandbox: a real request with test money. You see
+            exactly what PayPal answers.
           </p>
           {result && display && Icon ? (
             <Alert variant={display.destructive ? "destructive" : "default"}>
@@ -247,7 +247,7 @@ export function ApproveRefundDialog({ details }: { details: ApprovalDetails }) {
               <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
               <Button onClick={approve} disabled={pending}>
                 {pending ? <Spinner data-icon="inline-start" /> : null}
-                {pending ? "Issuing refund…" : "Approve and issue refund"}
+                {pending ? "Sending to PayPal…" : "Approve and issue refund"}
               </Button>
             </>
           )}

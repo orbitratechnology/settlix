@@ -85,14 +85,12 @@ export async function sandboxCheckout(page: Page, itemName: string) {
   await complete.click()
   await popup.waitForEvent("close", { timeout: 60_000 })
 
-  // The checkout notice, not the "Last sandbox operation" line that repeats it.
+  // The checkout notice, not the "Last activity" line that repeats it.
   const notice = page.getByText(
-    /PayPal Sandbox capture \S+ completed\. Open a refund case/,
+    /PayPal confirmed the payment \(reference \S+\)\. Turn it into/,
   )
   await expect(notice).toBeVisible({ timeout: 60_000 })
-  const captureId = (await notice.textContent())!.match(
-    /capture (\S+) completed/,
-  )![1]
+  const captureId = (await notice.textContent())!.match(/reference (\S+)\)/)![1]
   return captureId
 }
 
@@ -113,16 +111,16 @@ export async function createCaseForCapture(
 ) {
   await page.goto("/payments")
   const row = page.getByRole("row").filter({ hasText: captureId })
-  await row.getByRole("button", { name: "Create case" }).click()
+  await row.getByRole("button", { name: "Create request" }).click()
   const dialog = page.getByRole("dialog")
   await dialog.getByLabel("Customer name").fill(input.customer)
-  await dialog.getByRole("combobox", { name: "Category" }).click()
+  await dialog.getByRole("combobox", { name: "Reason" }).click()
   await page.getByRole("option", { name: input.category }).click()
-  await dialog.getByLabel("Claimed issue").fill(input.issue)
+  await dialog.getByLabel("Problem").fill(input.issue)
   await dialog.getByLabel("Customer message").fill(input.message)
-  await dialog.getByLabel("Requested amount (optional)").fill(input.requested)
-  await dialog.getByLabel("Merchant notes (optional)").fill(input.notes)
-  await dialog.getByRole("button", { name: "Create case" }).click()
+  await dialog.getByLabel("Amount asked for (optional)").fill(input.requested)
+  await dialog.getByLabel("Your notes (optional)").fill(input.notes)
+  await dialog.getByRole("button", { name: "Create request" }).click()
   await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/)
   return page.url().split("/").pop()!
 }
@@ -130,7 +128,7 @@ export async function createCaseForCapture(
 /** Runs (or re-runs) the investigation and waits for the case to update. */
 export async function investigate(page: Page) {
   const button = page.getByRole("button", {
-    name: /^(Start|Re-run) investigation$/,
+    name: /^(Check this request|Check again)$/,
   })
   const [response] = await Promise.all([
     page.waitForResponse(

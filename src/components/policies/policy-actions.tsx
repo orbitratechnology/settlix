@@ -118,7 +118,7 @@ export function PolicyVersionActions({
             </Button>
           }
           title="Delete this draft?"
-          description={`${label} and its clauses will be removed. Published versions are not affected.`}
+          description={`${label} and its rules will be removed. Published versions are not affected.`}
           confirmLabel="Delete draft"
           destructive
           action={() => deletePolicyDraft(policyId)}
@@ -131,7 +131,7 @@ export function PolicyVersionActions({
             </Button>
           }
           title="Publish and activate this version?"
-          description={`${label} becomes the active version and can no longer be edited. The currently active version is deactivated. Existing investigations keep the version they cited.`}
+          description={`${label} becomes the version Claude checks against, and it can no longer be edited. The version in use now is switched off. Past checks keep the version they quoted.`}
           confirmLabel="Publish and activate"
           action={() => activatePolicy(policyId)}
         />
@@ -150,7 +150,7 @@ export function PolicyVersionActions({
             </Button>
           }
           title="Deactivate this policy?"
-          description="Investigations won't use it. With no active policy, every case needs a merchant review."
+          description="Claude won't check requests against it. With no active policy, a person reviews every request."
           confirmLabel="Deactivate"
           action={() => deactivatePolicy(policyId)}
         />
@@ -209,15 +209,15 @@ export function DeleteClauseButton({
         <Button
           size="sm"
           variant="ghost"
-          aria-label={`Delete clause ${clauseKey}`}
+          aria-label={`Delete rule ${clauseKey}`}
         >
           <Trash2Icon data-icon="inline-start" />
           Delete
         </Button>
       }
-      title={`Delete clause ${clauseKey}?`}
-      description="This only changes the draft. Published versions keep their clauses."
-      confirmLabel="Delete clause"
+      title={`Delete rule ${clauseKey}?`}
+      description="This only changes the draft. Published versions keep their rules."
+      confirmLabel="Delete rule"
       destructive
       action={() => deleteClause(policyId, clauseId)}
     />

@@ -19,12 +19,14 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight break-words">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <h1 className="text-[1.75rem] leading-tight font-bold tracking-[-0.02em] break-words">
           {title}
         </h1>
         {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="max-w-[65ch] text-base text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? (
@@ -47,7 +49,7 @@ export function PageContainer({
   return (
     <div
       className={cn(
-        "@container/main flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-6",
+        "@container/main flex flex-1 flex-col gap-6 p-4 sm:p-6 md:gap-8 lg:p-8",
         className,
       )}
     >

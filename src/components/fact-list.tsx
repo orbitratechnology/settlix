@@ -14,7 +14,7 @@ export function FactList({
   className?: string
 }) {
   return (
-    <dl className={cn("grid gap-3 text-sm", className)}>
+    <dl className={cn("grid gap-3 text-[0.9375rem]", className)}>
       {facts.map((fact) => (
         <div
           key={fact.label}

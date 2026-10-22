@@ -64,7 +64,7 @@ describe("receiptState", () => {
           attempt: attempt({ status: "PENDING" }),
         }),
       ).label,
-    ).toBe("Refund pending")
+    ).toBe("Refund in progress")
     expect(
       receiptState(
         receipt({
@@ -72,7 +72,7 @@ describe("receiptState", () => {
           attempt: attempt({ status: "RECOVERY_REQUIRED" }),
         }),
       ).label,
-    ).toBe("Recovery required")
+    ).toBe("Status unknown")
     expect(
       receiptState(
         receipt({
@@ -99,7 +99,7 @@ describe("receiptState", () => {
           attempt: attempt({ status: "FAILED" }),
         }),
       ).label,
-    ).toBe("Awaiting decision")
+    ).toBe("Waiting for your decision")
   })
 })
 

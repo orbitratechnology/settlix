@@ -41,7 +41,7 @@ test("E2E-03 missing evidence blocks the refund", async ({ page }) => {
     "Needs evidence",
   )
   const missing = page
-    .getByRole("heading", { name: "Missing evidence" })
+    .getByRole("heading", { name: "Missing information" })
     .locator("..")
   await expect(missing).toContainText(/photo/i)
   await expect(

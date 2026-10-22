@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Geist_Mono, Schibsted_Grotesk } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils"
 
 import "./globals.css"
 
-const geistSans = Geist({
+// One family for the product and the site: a warm, compact grotesk that stays
+// legible at the larger sizes the app uses.
+const schibsted = Schibsted_Grotesk({
   variable: "--font-sans",
   subsets: ["latin"],
 })
@@ -19,11 +21,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Settlix — Resolve payments intelligently",
+    default: "Settlix — Refunds, settled with proof",
     template: "%s · Settlix",
   },
   description:
-    "AI-powered refund resolution: evidence-backed investigations, deterministic safeguards, merchant approval, and traceable PayPal refunds.",
+    "Settlix checks each refund request against the order and your return policy. You approve it, PayPal pays the customer back, and a receipt records every step.",
 }
 
 export const viewport: Viewport = {
@@ -39,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       suppressHydrationWarning
       className={cn(
-        geistSans.variable,
+        schibsted.variable,
         geistMono.variable,
         "h-full antialiased",
       )}

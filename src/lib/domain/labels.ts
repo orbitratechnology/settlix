@@ -35,49 +35,49 @@ export const caseStatusMeta: Record<CaseStatus, StatusMeta> = {
   NEW: {
     label: "New",
     tone: "secondary",
-    description: "Not investigated yet.",
+    description: "Waiting to be checked.",
     needsAttention: false,
     open: true,
   },
   INVESTIGATING: {
-    label: "Investigating",
+    label: "Checking",
     tone: "info",
-    description: "An AI investigation is running.",
+    description: "Claude is reading the request and your return policy.",
     needsAttention: false,
     open: true,
   },
   NEEDS_EVIDENCE: {
-    label: "Needs evidence",
+    label: "Waiting on customer",
     tone: "warning",
-    description: "Waiting on information from the customer.",
+    description: "Needs more information from the customer, such as a photo.",
     needsAttention: true,
     open: true,
   },
   NEEDS_REVIEW: {
-    label: "Needs review",
+    label: "Needs your review",
     tone: "warning",
-    description: "A merchant must review this case manually.",
+    description: "A person needs to look at this before any refund.",
     needsAttention: true,
     open: true,
   },
   READY_FOR_APPROVAL: {
-    label: "Ready for approval",
+    label: "Ready to approve",
     tone: "info",
-    description: "Passed all checks; waiting for merchant approval.",
+    description: "Every check passed. It's waiting for your approval.",
     needsAttention: true,
     open: true,
   },
   REFUND_PENDING: {
-    label: "Refund pending",
+    label: "Refund in progress",
     tone: "info",
-    description: "Sent to PayPal; not completed yet.",
+    description: "Sent to PayPal and not finished yet.",
     needsAttention: true,
     open: true,
   },
   REFUNDED: {
     label: "Refunded",
     tone: "success",
-    description: "PayPal reported the refund as completed.",
+    description: "PayPal confirmed the money went back to the customer.",
     needsAttention: false,
     open: false,
   },
@@ -91,14 +91,15 @@ export const caseStatusMeta: Record<CaseStatus, StatusMeta> = {
   REFUND_FAILED: {
     label: "Refund failed",
     tone: "destructive",
-    description: "PayPal rejected the refund. No money was returned.",
+    description: "PayPal turned the refund down. No money was returned.",
     needsAttention: true,
     open: true,
   },
   RECOVERY_REQUIRED: {
-    label: "Recovery required",
+    label: "Check refund status",
     tone: "destructive",
-    description: "The refund outcome is unknown and must be reconciled.",
+    description:
+      "PayPal hasn't confirmed whether the refund went through. Check its status before doing anything else.",
     needsAttention: true,
     open: true,
   },
@@ -108,11 +109,11 @@ export const refundAttemptStatusMeta: Record<
   RefundAttemptStatus,
   { label: string; tone: BadgeTone }
 > = {
-  REQUESTED: { label: "Requested", tone: "secondary" },
-  PENDING: { label: "Pending", tone: "info" },
+  REQUESTED: { label: "Sending to PayPal", tone: "secondary" },
+  PENDING: { label: "In progress", tone: "info" },
   COMPLETED: { label: "Completed", tone: "success" },
   FAILED: { label: "Failed", tone: "destructive" },
-  RECOVERY_REQUIRED: { label: "Recovery required", tone: "destructive" },
+  RECOVERY_REQUIRED: { label: "Status unknown", tone: "destructive" },
 }
 
 export const requestCategoryLabels: Record<RequestCategory, string> = {
@@ -126,10 +127,10 @@ export const requestCategoryLabels: Record<RequestCategory, string> = {
 }
 
 export const paymentStateLabels: Record<PaymentState, string> = {
-  AWAITING_CAPTURE: "Not captured",
-  CAPTURE_PENDING: "Capture pending",
-  CAPTURED: "Captured",
-  CAPTURE_DECLINED: "Capture declined",
+  AWAITING_CAPTURE: "Not paid yet",
+  CAPTURE_PENDING: "Payment pending",
+  CAPTURED: "Paid",
+  CAPTURE_DECLINED: "Payment declined",
   PARTIALLY_REFUNDED: "Partially refunded",
   REFUNDED: "Refunded",
 }
@@ -147,9 +148,9 @@ export const clauseTypeLabels: Record<ClauseType, string> = {
   return_window: "Return window",
   full_refund: "Full refund",
   partial_refund: "Partial refund",
-  exclusion: "Exclusion",
-  evidence_requirement: "Evidence requirement",
-  manual_review: "Manual review",
+  exclusion: "Not covered",
+  evidence_requirement: "Proof needed",
+  manual_review: "Needs a person",
   general: "General",
 }
 
@@ -158,29 +159,30 @@ export const eligibilityOutcomeMeta: Record<
   { label: string; tone: BadgeTone; description: string }
 > = {
   eligible_for_approval: {
-    label: "Eligible for approval",
+    label: "Ready to approve",
     tone: "success",
-    description: "Every check passed. A merchant can approve the refund.",
+    description: "Every check passed. You can approve the refund.",
   },
   requires_evidence: {
-    label: "Needs evidence",
+    label: "Needs more information",
     tone: "warning",
-    description: "Required evidence is missing.",
+    description: "Something the policy asks for is missing, such as a photo.",
   },
   requires_review: {
-    label: "Needs review",
+    label: "Needs your review",
     tone: "warning",
-    description: "A merchant must review the case before any refund.",
+    description: "A person needs to look at this before any refund.",
   },
   not_eligible: {
     label: "Not eligible",
     tone: "outline",
-    description: "The policy doesn't allow a refund for this request.",
+    description: "Your return policy doesn't allow a refund for this request.",
   },
   blocked_by_payment_state: {
-    label: "Blocked by payment",
+    label: "Payment can't be refunded",
     tone: "destructive",
-    description: "The payment records don't allow a refund.",
+    description:
+      "The payment isn't in a state PayPal can refund, or nothing is left to refund.",
   },
 }
 
@@ -190,27 +192,27 @@ export const proposedActionMeta: Record<
 > = {
   full_refund: { label: "Full refund", tone: "info" },
   partial_refund: { label: "Partial refund", tone: "info" },
-  request_evidence: { label: "Request evidence", tone: "warning" },
-  manual_review: { label: "Manual review", tone: "warning" },
-  not_eligible: { label: "Not eligible", tone: "outline" },
+  request_evidence: { label: "Ask for more information", tone: "warning" },
+  manual_review: { label: "Have a person review it", tone: "warning" },
+  not_eligible: { label: "No refund", tone: "outline" },
 }
 
 export const factSourceLabels: Record<(typeof factSources)[number], string> = {
   customer_message: "Customer message",
-  merchant_notes: "Merchant notes",
-  order_record: "Order record",
-  payment_record: "Payment record",
-  refund_history: "Refund history",
-  policy: "Policy",
+  merchant_notes: "Your notes",
+  order_record: "Order",
+  payment_record: "Payment",
+  refund_history: "Earlier refunds",
+  policy: "Return policy",
 }
 
 export const riskFlagLabels: Record<RiskFlagCode, string> = {
-  prompt_injection: "Prompt injection",
-  contradictory_claims: "Contradictory claims",
+  prompt_injection: "Message tries to instruct the AI",
+  contradictory_claims: "Details don't match",
   possible_fraud: "Possible fraud",
-  policy_conflict: "Policy conflict",
-  repeat_requester: "Repeat requester",
-  high_value: "High value",
-  unverified_evidence: "Unverified evidence",
+  policy_conflict: "Policy is unclear here",
+  repeat_requester: "Has asked before",
+  high_value: "High amount",
+  unverified_evidence: "Proof not verified",
   other: "Other",
 }

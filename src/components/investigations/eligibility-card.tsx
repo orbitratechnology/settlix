@@ -9,12 +9,10 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 
-import { FactList } from "@/components/fact-list"
 import {
   ApproveRefundDialog,
   type ApprovalDetails,
 } from "@/components/refunds/approve-refund-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
@@ -35,7 +33,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Separator } from "@/components/ui/separator"
 import {
   caseStatusMeta,
   eligibilityOutcomeMeta,
@@ -56,13 +53,13 @@ const statusDisplay: Record<
   pass: { icon: CircleCheckIcon, label: "Passed", className: "text-success" },
   fail: {
     icon: CircleXIcon,
-    label: "Blocks approval",
+    label: "Stops the refund",
     className: "text-destructive",
   },
   warning: {
     icon: TriangleAlertIcon,
-    label: "Note",
-    className: "text-warning",
+    label: "Worth a look",
+    className: "text-warning-foreground dark:text-warning",
   },
   not_applicable: {
     icon: CircleMinusIcon,
@@ -71,9 +68,33 @@ const statusDisplay: Record<
   },
 }
 
+const outcomeTone: Record<
+  EligibilityResult["outcome"],
+  { panel: string; text: string }
+> = {
+  eligible_for_approval: {
+    panel: "bg-success/10",
+    text: "text-success",
+  },
+  requires_evidence: {
+    panel: "bg-warning/20",
+    text: "text-warning-foreground dark:text-warning",
+  },
+  requires_review: {
+    panel: "bg-warning/20",
+    text: "text-warning-foreground dark:text-warning",
+  },
+  not_eligible: { panel: "bg-muted", text: "text-foreground" },
+  blocked_by_payment_state: {
+    panel: "bg-destructive/10",
+    text: "text-destructive",
+  },
+}
+
 /**
- * Deterministic eligibility (FR-08) for the latest recommendation, re-checked
- * against the current records on every page load.
+ * "Your decision": the deterministic checks (FR-08) for the latest
+ * suggestion, re-run against current records on every load, and the one
+ * action they allow. Claude can't override a failed check.
  */
 export function EligibilityCard({
   result,
@@ -92,10 +113,9 @@ export function EligibilityCard({
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Checks &amp; action</CardTitle>
+        <CardTitle className="text-xl">Your decision</CardTitle>
         <CardDescription>
-          Rules applied by Settlix, independent of the AI. The AI can&apos;t
-          override a failed check.
+          Settlix&apos;s own safety checks. Claude can&apos;t override them.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -107,15 +127,15 @@ export function EligibilityCard({
             decided={decided}
           />
         ) : (
-          <Empty className="border">
+          <Empty className="border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ScaleIcon />
               </EmptyMedia>
-              <EmptyTitle>No checks run</EmptyTitle>
+              <EmptyTitle>Not checked yet</EmptyTitle>
               <EmptyDescription>
-                Eligibility is checked after an investigation. No refund action
-                is available.
+                Use “Check this request” below. Once Claude has read it, Settlix
+                runs its safety checks and shows what you can do.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -137,10 +157,12 @@ function EligibilityDetails({
   decided: { caseId: string; status: CaseStatus } | null
 }) {
   const outcome = eligibilityOutcomeMeta[result.outcome]
+  const tone = outcomeTone[result.outcome]
   const decision = decided ? caseStatusMeta[decided.status] : null
   const { amounts } = result
   const money = (minor: number) => formatMoney(minor, amounts.currencyCode)
   const eligible = result.outcome === "eligible_for_approval"
+  const passed = result.checks.filter((check) => check.status === "pass")
   // After a decision every check that fails only blocks a repeat refund, so
   // listing them as problems would misread a resolved case.
   const flagged = decided
@@ -150,99 +172,45 @@ function EligibilityDetails({
       )
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {decision ? (
-          <>
-            <Badge variant={decision.tone}>{decision.label}</Badge>
-            <p className="text-sm">
-              {decision.description} Settlix blocks any further refund for this
-              case.
-            </p>
-          </>
-        ) : (
-          <>
-            <Badge variant={outcome.tone}>{outcome.label}</Badge>
-            <p className="text-sm">{result.summary}</p>
-          </>
-        )}
-      </div>
-
-      <FactList
-        facts={[
-          { label: "Captured", value: money(amounts.capturedMinor) },
-          {
-            label: "Refunded (confirmed)",
-            value: money(amounts.confirmedRefundedMinor),
-          },
-          ...(amounts.unresolvedMinor > 0
-            ? [
-                {
-                  label: "Refunds in progress",
-                  value: money(amounts.unresolvedMinor),
-                },
-              ]
-            : []),
-          { label: "Refundable now", value: money(amounts.remainingMinor) },
-          {
-            label: "Requested",
-            value:
-              amounts.requestedMinor === null
-                ? "Not stated"
-                : money(amounts.requestedMinor),
-          },
-          ...(decided
-            ? []
-            : [
-                {
-                  label: "Refund amount (server-checked)",
-                  value:
-                    amounts.proposedMinor === null ? (
-                      <span className="text-muted-foreground">
-                        None proposed
-                      </span>
-                    ) : (
-                      money(amounts.proposedMinor)
-                    ),
-                },
-              ]),
-        ]}
-      />
-
-      <Separator />
-
-      {flagged.length > 0 ? (
-        <CheckList checks={flagged} />
-      ) : decided ? null : (
-        <p className="text-sm text-muted-foreground">Every check passed.</p>
-      )}
-
-      <Collapsible>
-        <CollapsibleTrigger
-          render={
-            <Button variant="ghost" size="sm" className="group -ml-2 w-fit" />
-          }
+    <div className="flex flex-col gap-5">
+      {decision ? (
+        <div className="flex flex-col gap-1.5 rounded-xl bg-muted px-4 py-4">
+          <span className="text-lg font-semibold">{decision.label}</span>
+          <p className="text-[0.9375rem]">
+            {decision.description} Settlix won&apos;t send another refund for
+            this request.
+          </p>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "flex flex-wrap items-end justify-between gap-x-6 gap-y-3 rounded-xl px-4 py-4",
+            tone.panel,
+          )}
         >
-          All {result.checks.length} checks
-          <ChevronDownIcon
-            data-icon="inline-end"
-            className="transition-transform group-data-[panel-open]:rotate-180"
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2">
-          <CheckList checks={result.checks} />
-        </CollapsibleContent>
-      </Collapsible>
-
-      <Separator />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className={cn("text-lg font-semibold", tone.text)}>
+              {outcome.label}
+            </span>
+            <p className="max-w-[48ch] text-[0.9375rem]">{result.summary}</p>
+          </div>
+          {eligible && amounts.proposedMinor !== null ? (
+            <div className="flex flex-col items-start @md/card:items-end">
+              <span className="text-3xl font-bold tracking-tight">
+                {money(amounts.proposedMinor)}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                of {money(amounts.remainingMinor)} left to refund
+              </span>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {decided ? (
         <Link
           href={`/receipts/${decided.caseId}`}
-          className={buttonVariants({
-            variant: "outline",
-            className: "w-full",
-          })}
+          className={buttonVariants({ size: "lg", className: "w-full" })}
         >
           <ReceiptTextIcon data-icon="inline-start" />
           Open receipt
@@ -250,47 +218,90 @@ function EligibilityDetails({
       ) : eligible && approval ? (
         <div className="flex flex-col gap-2">
           <ApproveRefundDialog details={approval} />
-          <p className="text-xs text-muted-foreground">
-            Your approval is recorded with the amount before PayPal is called.
-            Nothing is refunded until you confirm.
+          <p className="text-sm text-muted-foreground">
+            Nothing is sent to PayPal until you confirm in the next step.
           </p>
         </div>
       ) : eligible ? (
         <div className="flex flex-col gap-2">
-          <Button disabled>Approve and issue refund</Button>
-          <p className="text-xs text-muted-foreground">
+          <Button size="lg" disabled>
+            Approve and issue refund
+          </Button>
+          <p className="text-sm text-muted-foreground">
             {approvalUnavailable ?? "Approval isn't available right now."}
           </p>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          No refund action is available for this case.
+        <p className="text-[0.9375rem] text-muted-foreground">
+          There is no refund to approve. Use “More actions” at the top to ask
+          the customer for information, send it for review, or decline it.
         </p>
       )}
+
+      {flagged.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-base font-semibold">What needs attention</h3>
+          <CheckList checks={flagged} />
+        </div>
+      ) : null}
+
+      <Collapsible>
+        <CollapsibleTrigger
+          render={
+            <Button
+              variant="ghost"
+              className="group -ml-3 h-auto w-fit justify-start gap-3 py-2"
+            />
+          }
+        >
+          <span className="flex -space-x-1" aria-hidden>
+            {passed.slice(0, 4).map((check) => (
+              <CircleCheckIcon
+                key={check.key}
+                className="size-5 rounded-full bg-card text-success"
+              />
+            ))}
+          </span>
+          <span className="text-[0.9375rem] font-medium">
+            {passed.length} of {result.checks.length} checks passed
+          </span>
+          <ChevronDownIcon
+            data-icon="inline-end"
+            className="transition-transform group-data-[panel-open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <CheckList checks={result.checks} />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   )
 }
 
 function CheckList({ checks }: { checks: EligibilityCheck[] }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-3.5">
       {checks.map((check) => {
         const display = statusDisplay[check.status]
         const Icon = display.icon
         return (
-          <li key={check.key} className="flex gap-2.5 text-sm">
+          <li key={check.key} className="flex gap-3">
             <Icon
               aria-hidden
-              className={cn("mt-0.5 size-4 shrink-0", display.className)}
+              className={cn("mt-0.5 size-5 shrink-0", display.className)}
             />
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">{check.label}</span>
-                <span className={cn("text-xs", display.className)}>
+                <span className="text-[0.9375rem] font-semibold">
+                  {check.label}
+                </span>
+                <span className={cn("text-sm", display.className)}>
                   {display.label}
                 </span>
               </span>
-              <span className="text-muted-foreground">{check.detail}</span>
+              <span className="text-[0.9375rem] text-muted-foreground">
+                {check.detail}
+              </span>
             </div>
           </li>
         )

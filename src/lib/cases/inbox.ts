@@ -103,3 +103,13 @@ export function inboxCounts(rows: InboxRow[]) {
     byStatus,
   }
 }
+
+/** Reads a `?view=` value from the URL; anything unknown shows all requests. */
+export function parseInboxView(
+  value: string | string[] | undefined,
+): InboxView {
+  const view = Array.isArray(value) ? value[0] : value
+  if (view === "attention" || view === "open") return view
+  if (view && Object.hasOwn(caseStatusMeta, view)) return view as CaseStatus
+  return "all"
+}

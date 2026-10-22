@@ -96,7 +96,7 @@ export function receiptState(receipt: Receipt): ReceiptState {
       return {
         label: "Demo record",
         tone: "outline",
-        description: "Seeded example. No PayPal refund was executed.",
+        description: "An example record. No PayPal refund was made.",
       }
     }
     switch (attempt.status) {
@@ -104,49 +104,49 @@ export function receiptState(receipt: Receipt): ReceiptState {
         return {
           label: "Refund completed",
           tone: "success",
-          description: "PayPal confirmed the refund as completed.",
+          description: "PayPal confirmed the money went back to the customer.",
         }
       case "REQUESTED":
       case "PENDING":
         return {
-          label: "Refund pending",
+          label: "Refund in progress",
           tone: "info",
           description:
-            "Sent to PayPal and not completed yet. This is not a completed refund.",
+            "Sent to PayPal and not finished yet. The money hasn't been confirmed as returned.",
         }
       case "RECOVERY_REQUIRED":
         return {
-          label: "Recovery required",
+          label: "Status unknown",
           tone: "destructive",
           description:
-            "PayPal's answer couldn't be confirmed. The refund must be reconciled before anything else happens.",
+            "PayPal's answer got lost. Check with PayPal before doing anything else.",
         }
       case "FAILED":
         return {
           label: "Refund failed",
           tone: "destructive",
-          description: "The refund didn't go through. No money was returned.",
+          description: "PayPal turned the refund down. No money was returned.",
         }
     }
   }
   switch (caseStatus) {
     case "READY_FOR_APPROVAL":
       return {
-        label: "Awaiting decision",
+        label: "Waiting for your decision",
         tone: "info",
-        description: "Eligible for approval. No refund has been approved.",
+        description: "Every check passed. No refund has been approved yet.",
       }
     case "NEEDS_EVIDENCE":
       return {
-        label: "Waiting for evidence",
+        label: "Waiting on customer",
         tone: "warning",
-        description: "Evidence is needed before any refund decision.",
+        description: "The customer needs to send more information first.",
       }
     case "NEEDS_REVIEW":
       return {
-        label: "Under review",
+        label: "Needs your review",
         tone: "warning",
-        description: "A merchant must review the case.",
+        description: "A person needs to look at this request.",
       }
     case "NOT_ELIGIBLE":
       return {
@@ -156,19 +156,19 @@ export function receiptState(receipt: Receipt): ReceiptState {
       }
     case "INVESTIGATING":
       return {
-        label: "Investigation running",
+        label: "Being checked",
         tone: "info",
-        description: "An AI investigation is in progress.",
+        description: "Claude is checking the request.",
       }
     default:
       return receipt.investigation
         ? {
-            label: "Recommendation prepared",
+            label: "Checked, not decided",
             tone: "secondary",
-            description: "A recommendation exists. No decision has been made.",
+            description: "Claude has made a suggestion. No decision yet.",
           }
         : {
-            label: "Not investigated",
+            label: "Not checked yet",
             tone: "secondary",
             description: caseStatusMeta[caseStatus].description,
           }

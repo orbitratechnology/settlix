@@ -646,9 +646,9 @@ const resultStatus = {
 function outcomeMessage(outcome: RefundOutcome, amount: string): string {
   switch (outcome.status) {
     case "COMPLETED":
-      return `PayPal completed the ${amount} refund (refund ${outcome.paypalRefundId}).`
+      return `PayPal sent ${amount} back to the customer. The receipt is ready.`
     case "PENDING":
-      return `PayPal accepted the ${amount} refund (refund ${outcome.paypalRefundId}), but it is still pending. The case stays pending until PayPal confirms it.`
+      return `PayPal accepted the ${amount} refund but hasn't finished it yet. The request stays "Refund in progress" until PayPal confirms it.`
     case "FAILED": {
       const reason =
         (outcome.errorCode && refundIssueMessages[outcome.errorCode]) ??
@@ -656,7 +656,7 @@ function outcomeMessage(outcome: RefundOutcome, amount: string): string {
       return `The ${amount} refund didn't go through. ${reason} No money was returned.`
     }
     case "RECOVERY_REQUIRED":
-      return `PayPal's answer for the ${amount} refund couldn't be confirmed (${outcome.errorCode ?? "unknown"}). It is marked for recovery: use "Check with PayPal" to reconcile with the same request. Don't approve another refund.`
+      return `PayPal's answer about the ${amount} refund got lost, so Settlix can't tell yet whether it went through. Use "Check with PayPal" to ask about this same refund. Don't approve another one.`
   }
 }
 
@@ -695,7 +695,7 @@ async function applyOutcome(
       status: "recovery_required",
       attemptId: attempt.id,
       refundId: outcome.paypalRefundId,
-      message: `PayPal was called, but its answer couldn't be saved. The refund stays pending; use "Check with PayPal" to reconcile. Don't approve another refund.`,
+      message: `PayPal was asked to refund, but its answer couldn't be saved. Use "Check with PayPal" to see what happened. Don't approve another refund.`,
     }
   }
 
@@ -708,7 +708,7 @@ async function applyOutcome(
     eventType: outcomeEvent[outcome.status],
     summary:
       source === "reconcile"
-        ? `Reconciled with PayPal: ${outcomeMessage(outcome, amount)}`
+        ? `Checked with PayPal: ${outcomeMessage(outcome, amount)}`
         : outcomeMessage(outcome, amount),
     metadata: {
       attempt_id: attempt.id,

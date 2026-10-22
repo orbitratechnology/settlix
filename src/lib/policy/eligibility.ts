@@ -199,37 +199,37 @@ export function evaluateEligibility(
   if (LOCKED_CASE_STATUSES.has(input.caseStatus)) {
     fail(
       "case_state",
-      "Case state",
+      "Request is open",
       "CASE_LOCKED",
       "blocked_by_payment_state",
       "A refund for this case is already underway or complete.",
     )
   } else {
-    pass("case_state", "Case state", "The case is open for a decision.")
+    pass("case_state", "Request is open", "The request is open for a decision.")
   }
 
   // 2. Mapped order and capture
   if (order.origin === "seed") {
     fail(
       "capture_mapping",
-      "PayPal capture",
+      "Linked to a PayPal payment",
       "NO_CAPTURE_MAPPING",
       "blocked_by_payment_state",
-      "Demo order: not linked to a PayPal Sandbox capture, so it can't be refunded.",
+      "Demo order: not linked to a PayPal Sandbox payment, so it can't be refunded.",
     )
   } else if (!order.paypalCaptureId) {
     fail(
       "capture_mapping",
-      "PayPal capture",
+      "Linked to a PayPal payment",
       "NO_CAPTURE_MAPPING",
       "blocked_by_payment_state",
-      "No PayPal capture is linked to this order.",
+      "This order isn't linked to a PayPal payment.",
     )
   } else {
     pass(
       "capture_mapping",
-      "PayPal capture",
-      `Linked to PayPal capture ${order.paypalCaptureId}.`,
+      "Linked to a PayPal payment",
+      "Linked to the customer's PayPal payment.",
     )
   }
 
@@ -237,7 +237,7 @@ export function evaluateEligibility(
   if (order.paymentState === "REFUNDED") {
     fail(
       "payment_state",
-      "Payment state",
+      "Customer has paid",
       "ALREADY_FULLY_REFUNDED",
       "blocked_by_payment_state",
       "The payment has already been fully refunded.",
@@ -246,14 +246,18 @@ export function evaluateEligibility(
     order.paymentState === "CAPTURED" ||
     order.paymentState === "PARTIALLY_REFUNDED"
   ) {
-    pass("payment_state", "Payment state", "The payment was captured.")
+    pass(
+      "payment_state",
+      "Customer has paid",
+      "PayPal shows the customer paid.",
+    )
   } else {
     fail(
       "payment_state",
-      "Payment state",
+      "Customer has paid",
       "PAYMENT_NOT_CAPTURED",
       "blocked_by_payment_state",
-      "The payment was never captured, so there is nothing to refund.",
+      "The customer never completed the payment, so there is nothing to refund.",
     )
   }
 
@@ -264,23 +268,27 @@ export function evaluateEligibility(
       "Currency",
       "CURRENCY_MISMATCH",
       "blocked_by_payment_state",
-      `The case is in ${context.case.currencyCode} but the payment is in ${currency}.`,
+      `The request is in ${context.case.currencyCode} but the payment is in ${currency}.`,
     )
   } else {
-    pass("currency", "Currency", `Case and payment are both in ${currency}.`)
+    pass(
+      "currency",
+      "Currency",
+      `The request and the payment are both in ${currency}.`,
+    )
   }
 
   // 5 & 7. Remaining refundable balance and prior refunds
   if (facts.remainingMinor > 0) {
     pass(
       "refund_balance",
-      "Refundable balance",
+      "Money left to refund",
       `${money(facts.remainingMinor)} of ${money(facts.capturedMinor)} can still be refunded.`,
     )
   } else if (facts.confirmedRefundedMinor >= facts.capturedMinor) {
     fail(
       "refund_balance",
-      "Refundable balance",
+      "Money left to refund",
       "ALREADY_FULLY_REFUNDED",
       "blocked_by_payment_state",
       `${money(facts.confirmedRefundedMinor)} has already been refunded. Nothing is left to refund.`,
@@ -288,10 +296,10 @@ export function evaluateEligibility(
   } else {
     fail(
       "refund_balance",
-      "Refundable balance",
+      "Money left to refund",
       "NO_REFUNDABLE_BALANCE",
       "blocked_by_payment_state",
-      "Unresolved refund attempts cover the whole remaining balance.",
+      "Refunds still on their way cover everything that's left.",
     )
   }
 
@@ -299,16 +307,16 @@ export function evaluateEligibility(
   if (facts.hasUnresolvedAttempt) {
     fail(
       "unresolved_attempts",
-      "Refunds in progress",
+      "No other refund on its way",
       "REFUND_IN_PROGRESS",
       "blocked_by_payment_state",
-      "An earlier refund attempt is still pending or needs reconciliation.",
+      "An earlier refund is still on its way or needs a status check.",
     )
   } else {
     pass(
       "unresolved_attempts",
-      "Refunds in progress",
-      "No refund attempt is pending or unresolved.",
+      "No other refund on its way",
+      "No other refund is on its way.",
     )
   }
 
@@ -316,22 +324,22 @@ export function evaluateEligibility(
   if (requested === null) {
     skip(
       "requested_amount",
-      "Requested amount",
+      "Amount asked",
       "The customer didn't state an amount.",
     )
   } else if (requested > facts.capturedMinor) {
     fail(
       "requested_amount",
-      "Requested amount",
+      "Amount asked",
       "REQUESTED_EXCEEDS_CAPTURE",
       "requires_review",
-      `The customer asked for ${money(requested)}, more than the ${money(facts.capturedMinor)} captured.`,
+      `The customer asked for ${money(requested)}, more than the ${money(facts.capturedMinor)} they paid.`,
     )
   } else {
     pass(
       "requested_amount",
-      "Requested amount",
-      `${money(requested)} requested, within the captured amount.`,
+      "Amount asked",
+      `${money(requested)} asked, no more than they paid.`,
     )
   }
 
@@ -340,15 +348,15 @@ export function evaluateEligibility(
   if (policies.length === 0) {
     fail(
       "policy",
-      "Applicable policy",
+      "Return policy",
       "NO_APPLICABLE_POLICY",
       "requires_review",
-      "No active return policy applies, so a merchant must decide.",
+      "No active return policy applies, so you need to decide.",
     )
   } else {
     pass(
       "policy",
-      "Applicable policy",
+      "Return policy",
       policies.map((p) => `${p.name} v${p.version}`).join(", "),
     )
   }
@@ -362,7 +370,7 @@ export function evaluateEligibility(
       "return_window",
       "Return window",
       days === null
-        ? "No capture date to measure the window from."
+        ? "There is no payment date to count from."
         : "The policy sets no return window.",
     )
   } else {
@@ -375,13 +383,13 @@ export function evaluateEligibility(
         "Return window",
         "OUTSIDE_RETURN_WINDOW",
         "not_eligible",
-        `Requested ${elapsed} days after capture; the window is ${window} days.`,
+        `Asked ${elapsed} days after paying; the window is ${window} days.`,
       )
     } else {
       pass(
         "return_window",
         "Return window",
-        `Requested ${elapsed} days after capture, within the ${window}-day window.`,
+        `Asked ${elapsed} days after paying, inside the ${window}-day window.`,
       )
     }
   }
@@ -399,27 +407,23 @@ export function evaluateEligibility(
     .map((p) => p.manualReviewAboveMinor)
     .filter((value): value is number => value !== null)
   if (thresholds.length === 0) {
-    skip(
-      "review_threshold",
-      "Review threshold",
-      "The policy sets no review threshold.",
-    )
+    skip("review_threshold", "Review limit", "The policy sets no review limit.")
   } else {
     const threshold = Math.min(...thresholds)
     const amount = Math.max(requested ?? 0, refundAmount ?? 0)
     if (amount > threshold) {
       fail(
         "review_threshold",
-        "Review threshold",
+        "Review limit",
         "ABOVE_REVIEW_THRESHOLD",
         "requires_review",
-        `${money(amount)} is above the ${money(threshold)} manual-review threshold.`,
+        `${money(amount)} is above the ${money(threshold)} limit that needs a person to review.`,
       )
     } else {
       pass(
         "review_threshold",
-        "Review threshold",
-        `Below the ${money(threshold)} manual-review threshold.`,
+        "Review limit",
+        `Below the ${money(threshold)} limit that needs a person to review.`,
       )
     }
   }
@@ -430,7 +434,7 @@ export function evaluateEligibility(
   if (action === "request_evidence") {
     fail(
       "ai_recommendation",
-      "AI recommendation",
+      "Claude's suggestion",
       "AI_REQUESTS_EVIDENCE",
       "requires_evidence",
       recommended,
@@ -438,7 +442,7 @@ export function evaluateEligibility(
   } else if (action === "manual_review") {
     fail(
       "ai_recommendation",
-      "AI recommendation",
+      "Claude's suggestion",
       "AI_REQUESTS_REVIEW",
       "requires_review",
       recommended,
@@ -446,13 +450,13 @@ export function evaluateEligibility(
   } else if (action === "not_eligible") {
     fail(
       "ai_recommendation",
-      "AI recommendation",
+      "Claude's suggestion",
       "AI_NOT_ELIGIBLE",
       "not_eligible",
       recommended,
     )
   } else {
-    pass("ai_recommendation", "AI recommendation", recommended)
+    pass("ai_recommendation", "Claude's suggestion", recommended)
   }
 
   const invalid = input.citations.filter((c) => !c.valid)
@@ -460,7 +464,7 @@ export function evaluateEligibility(
   if (invalid.length > 0) {
     fail(
       "citations",
-      "Policy citations",
+      "Policy quotes",
       "INVALID_CITATION",
       "requires_review",
       `${invalid.length} citation${invalid.length === 1 ? "" : "s"} could not be matched to stored policy text.`,
@@ -468,7 +472,7 @@ export function evaluateEligibility(
   } else if (valid === 0 && refundAction) {
     fail(
       "citations",
-      "Policy citations",
+      "Policy quotes",
       "MISSING_CITATION",
       "requires_review",
       "A refund recommendation must cite the policy clauses it relies on.",
@@ -476,14 +480,14 @@ export function evaluateEligibility(
   } else if (valid === 0) {
     warn(
       "citations",
-      "Policy citations",
+      "Policy quotes",
       "No policy clause was cited.",
       "MISSING_CITATION",
     )
   } else {
     pass(
       "citations",
-      "Policy citations",
+      "Policy quotes",
       `${valid} cited clause${valid === 1 ? "" : "s"} verified against stored policy text.`,
     )
   }
@@ -492,7 +496,7 @@ export function evaluateEligibility(
   if (missing > 0 && refundAction) {
     fail(
       "evidence",
-      "Required evidence",
+      "Proof",
       "EVIDENCE_MISSING",
       "requires_evidence",
       `${missing} required item${missing === 1 ? " is" : "s are"} missing.`,
@@ -500,25 +504,25 @@ export function evaluateEligibility(
   } else if (missing > 0) {
     warn(
       "evidence",
-      "Required evidence",
+      "Proof",
       `${missing} required item${missing === 1 ? " is" : "s are"} missing.`,
       "EVIDENCE_MISSING",
     )
   } else {
-    pass("evidence", "Required evidence", "No required evidence is missing.")
+    pass("evidence", "Proof", "Nothing the policy asks for is missing.")
   }
 
   const contradictions = recommendation.contradictions.length
   if (contradictions > 0) {
     fail(
       "contradictions",
-      "Consistent facts",
+      "Details match",
       "CONTRADICTIONS_FOUND",
       "requires_review",
       `${contradictions} contradiction${contradictions === 1 ? "" : "s"} found in the case facts.`,
     )
   } else {
-    pass("contradictions", "Consistent facts", "No contradictions found.")
+    pass("contradictions", "Details match", "Nothing contradicts the records.")
   }
 
   const flags = recommendation.riskFlags
@@ -527,21 +531,21 @@ export function evaluateEligibility(
     const injection = reviewFlags.some((f) => f.code === "prompt_injection")
     fail(
       "risk_flags",
-      "Risk flags",
+      "Warning signs",
       injection ? "PROMPT_INJECTION_FLAGGED" : "RISK_FLAGGED",
       "requires_review",
       injection
         ? "The customer text tries to instruct the AI. It was treated as data."
-        : "A risk flag requires a merchant review.",
+        : "A warning sign means a person needs to review it.",
     )
   } else if (flags.length > 0) {
     warn(
       "risk_flags",
-      "Risk flags",
+      "Warning signs",
       `${flags.length} risk note${flags.length === 1 ? "" : "s"} to consider.`,
     )
   } else {
-    pass("risk_flags", "Risk flags", "No risk flags.")
+    pass("risk_flags", "Warning signs", "No warning signs.")
   }
 
   // 5. Refund amount
@@ -605,16 +609,16 @@ export function evaluateEligibility(
   ) {
     fail(
       "freshness",
-      "Current records",
+      "Up to date",
       "STALE_RECOMMENDATION",
       "requires_review",
-      "The case, payment, or policy changed after this investigation. Run it again.",
+      "The request, payment, or policy changed after Claude checked it. Check again.",
     )
   } else {
     pass(
       "freshness",
-      "Current records",
-      "Based on the current case, payment, and policy records.",
+      "Up to date",
+      "Based on the latest request, payment, and policy.",
     )
   }
 
@@ -661,14 +665,14 @@ function summarize(
   const first = failed.find((check) => check.effect === outcome) ?? failed[0]
   switch (outcome) {
     case "eligible_for_approval":
-      return `Eligible for approval: refund ${money(amount ?? 0)}.`
+      return `Every check passed. You can approve a refund of ${money(amount ?? 0)}.`
     case "requires_evidence":
-      return "Evidence is needed before a refund can be considered."
+      return "The customer needs to send more information before a refund."
     case "requires_review":
-      return `A merchant must review this case. ${first?.detail ?? ""}`.trim()
+      return `A person needs to review this request. ${first?.detail ?? ""}`.trim()
     case "not_eligible":
       return `Not eligible for a refund. ${first?.detail ?? ""}`.trim()
     case "blocked_by_payment_state":
-      return `Refund blocked by the payment state. ${first?.detail ?? ""}`.trim()
+      return `This payment can't be refunded. ${first?.detail ?? ""}`.trim()
   }
 }

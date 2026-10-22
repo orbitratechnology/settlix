@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "playwright-report/**",
     "blob-report/**",
+    // Agent skills ship their own scripts; they aren't app code.
+    ".claude/**",
+    ".taste-skill/**",
   ]),
 ])
 

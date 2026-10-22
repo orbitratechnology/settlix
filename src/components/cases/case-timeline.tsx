@@ -18,9 +18,9 @@ const actorIcons = {
 } as const
 
 const actorLabels = {
-  user: "Merchant",
-  system: "System",
-  ai: "AI",
+  user: "Your team",
+  system: "Settlix",
+  ai: "Claude",
 } as const
 
 /** Append-only audit trail for the case (PRD §12.9). */
@@ -34,12 +34,15 @@ export function CaseTimeline({
       <CardHeader>
         <CardTitle>Activity</CardTitle>
         <CardDescription>
-          The case&apos;s audit trail. Entries are never edited or removed.
+          Everything that happened on this request. Entries can&apos;t be edited
+          or deleted.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No activity yet.</p>
+          <p className="text-[0.9375rem] text-muted-foreground">
+            Nothing has happened yet.
+          </p>
         ) : (
           <ol className="flex flex-col">
             {events.map((event, index) => {
@@ -48,21 +51,20 @@ export function CaseTimeline({
               return (
                 <li key={event.id} className="flex gap-3">
                   <div className="flex flex-col items-center">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-background">
-                      <Icon className="size-3.5 text-muted-foreground" />
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                      <Icon className="size-4 text-muted-foreground" />
                     </span>
                     {last ? null : <span className="w-px flex-1 bg-border" />}
                   </div>
-                  <div className="flex min-w-0 flex-col gap-1 pb-5">
-                    <p className="text-sm">{event.event_summary}</p>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <span>{actorLabels[event.actor_type]}</span>
-                      <span aria-hidden>·</span>
+                  <div className="flex min-w-0 flex-col gap-1 pb-6">
+                    <p className="text-[0.9375rem]">{event.event_summary}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {actorLabels[event.actor_type]}
+                      </span>
                       <time dateTime={event.created_at}>
                         {formatDateTime(event.created_at)}
                       </time>
-                      <span aria-hidden>·</span>
-                      <span className="font-mono">{event.event_type}</span>
                       <OriginBadge origin={event.origin} />
                     </div>
                   </div>

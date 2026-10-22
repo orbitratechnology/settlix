@@ -104,10 +104,10 @@ export default async function PolicyVersionPage({
       {isDraft ? null : (
         <Alert>
           <LockIcon />
-          <AlertTitle>Published versions are read-only</AlertTitle>
+          <AlertTitle>This version can&apos;t be changed</AlertTitle>
           <AlertDescription>
-            Investigations quote these clauses word for word, so the text never
-            changes after publishing. Create a new version to make changes.
+            Claude quotes these rules word for word, so the text stays exactly
+            as published. Make a new version to change it.
           </AlertDescription>
         </Alert>
       )}
@@ -129,7 +129,7 @@ export default async function PolicyVersionPage({
       <div className="grid gap-4 @4xl/main:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <Card className="min-w-0 @4xl/main:self-start">
           <CardHeader>
-            <CardTitle>Clauses</CardTitle>
+            <CardTitle>Rules</CardTitle>
             <CardDescription>
               Stable IDs that recommendations cite. Order is the order they were
               added.
@@ -147,7 +147,7 @@ export default async function PolicyVersionPage({
                   <EmptyMedia variant="icon">
                     <ScrollTextIcon />
                   </EmptyMedia>
-                  <EmptyTitle>No clauses yet</EmptyTitle>
+                  <EmptyTitle>No rules yet</EmptyTitle>
                   <EmptyDescription>
                     Add the return window, refund conditions, exclusions,
                     evidence requirements, and review conditions.

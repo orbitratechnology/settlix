@@ -10,7 +10,7 @@ export function SandboxBadge() {
       title="All PayPal operations use the PayPal Sandbox"
     >
       <FlaskConicalIcon data-icon="inline-start" />
-      PayPal Sandbox
+      <span className="hidden sm:inline">PayPal</span> Sandbox
     </Badge>
   )
 }

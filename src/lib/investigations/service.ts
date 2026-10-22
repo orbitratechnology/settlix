@@ -59,9 +59,9 @@ export function investigationUnavailableReason(row: {
   if (row.status === "INVESTIGATING") {
     return Date.parse(row.updated_at) < Date.now() - STALE_RUN_MS
       ? null
-      : "An investigation is already running for this case."
+      : "Claude is already checking this request."
   }
-  return `A case that is "${caseStatusMeta[row.status].label}" can't be investigated.`
+  return `A request that is “${caseStatusMeta[row.status].label}” can't be checked again.`
 }
 
 /** Per-merchant budget for investigations (PRD §14.5). */

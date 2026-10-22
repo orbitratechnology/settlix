@@ -23,23 +23,23 @@ describe("isActivePath", () => {
 describe("breadcrumbLabel", () => {
   test("labels sections and record pages without exposing raw IDs", () => {
     const segments = ["cases", "5eed0000-0000-4000-8000-000500000001"]
-    expect(breadcrumbLabel(segments, 0)).toBe("Resolution Inbox")
-    expect(breadcrumbLabel(segments, 1)).toBe("Case")
+    expect(breadcrumbLabel(segments, 0)).toBe("Refund requests")
+    expect(breadcrumbLabel(segments, 1)).toBe("Request")
   })
 })
 
 describe("breadcrumbs", () => {
   test("builds one crumb per segment", () => {
     expect(breadcrumbs("/policies/p1")).toEqual([
-      { href: "/policies", label: "Policies" },
-      { href: "/policies/p1", label: "Policy version" },
+      { href: "/policies", label: "Return policies" },
+      { href: "/policies/p1", label: "Policy" },
     ])
   })
 
   test("routes a receipt's trail through its case", () => {
     expect(breadcrumbs("/receipts/c1")).toEqual([
-      { href: "/cases", label: "Resolution Inbox" },
-      { href: "/cases/c1", label: "Case" },
+      { href: "/cases", label: "Refund requests" },
+      { href: "/cases/c1", label: "Request" },
       { href: "/receipts/c1", label: "Receipt" },
     ])
   })

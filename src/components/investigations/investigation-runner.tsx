@@ -53,7 +53,7 @@ export function InvestigationRunner({
           message =
             body && typeof body === "object" && "message" in body
               ? String(body.message)
-              : "The investigation failed. The case is unchanged; try again."
+              : "The check didn't finish. Nothing changed on this request; try again."
         }
       } catch {
         message =
@@ -64,21 +64,18 @@ export function InvestigationRunner({
     })
   }
 
-  const label = hasInvestigation
-    ? "Re-run investigation"
-    : "Start investigation"
+  const label = hasInvestigation ? "Check again" : "Check this request"
 
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>AI investigation</CardTitle>
+        <CardTitle className="text-xl">Claude&apos;s check</CardTitle>
         <CardDescription>
-          Claude&apos;s reading of the request, with cited policy evidence. It
-          is advisory: checks and a merchant decide.
+          Claude reads the request, the order, and your return policy, then
+          suggests what to do. It can&apos;t send or approve refunds.
         </CardDescription>
         <CardAction>
           <Button
-            size="sm"
             variant={hasInvestigation ? "outline" : "default"}
             onClick={run}
             disabled={pending || blockedReason !== null}
@@ -90,25 +87,27 @@ export function InvestigationRunner({
             ) : (
               <SparklesIcon data-icon="inline-start" />
             )}
-            {pending ? "Investigating…" : label}
+            {pending ? "Checking…" : label}
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {blockedReason ? (
-          <p className="text-sm text-muted-foreground">{blockedReason}</p>
+          <p className="text-[0.9375rem] text-muted-foreground">
+            {blockedReason}
+          </p>
         ) : null}
         {pending ? (
           <div
             role="status"
-            className="flex items-start gap-3 rounded-lg border bg-muted/50 p-3 text-sm"
+            className="flex items-start gap-3 rounded-xl bg-muted p-4 text-[0.9375rem]"
           >
             <Spinner className="mt-0.5" />
             <div className="flex flex-col gap-0.5">
-              <span className="font-medium">Claude is investigating</span>
+              <span className="font-semibold">Claude is checking</span>
               <span className="text-muted-foreground">
-                Reading the request, order, refund history, and active policy.
-                This usually takes under a minute. Nothing is refunded.
+                Reading the request, the order, earlier refunds, and your return
+                policy. This usually takes under a minute. Nothing is refunded.
               </span>
             </div>
           </div>
@@ -116,7 +115,7 @@ export function InvestigationRunner({
         {failure && !pending ? (
           <Alert variant="destructive">
             <AlertCircleIcon />
-            <AlertTitle>Investigation failed</AlertTitle>
+            <AlertTitle>The check didn&apos;t finish</AlertTitle>
             <AlertDescription>{failure}</AlertDescription>
           </Alert>
         ) : null}

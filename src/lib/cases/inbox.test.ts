@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  parseInboxView,
   defaultInboxFilters,
   filterInbox,
   inboxCounts,
@@ -105,5 +106,19 @@ describe("inboxCounts", () => {
     expect(counts.open).toBe(2)
     expect(counts.byStatus.NEW).toBe(1)
     expect(counts.byStatus.RECOVERY_REQUIRED).toBe(0)
+  })
+})
+
+describe("parseInboxView", () => {
+  test("accepts quick views and statuses from the URL", () => {
+    expect(parseInboxView("attention")).toBe("attention")
+    expect(parseInboxView("READY_FOR_APPROVAL")).toBe("READY_FOR_APPROVAL")
+    expect(parseInboxView(["NEW", "open"])).toBe("NEW")
+  })
+
+  test("falls back to all requests", () => {
+    expect(parseInboxView(undefined)).toBe("all")
+    expect(parseInboxView("toString")).toBe("all")
+    expect(parseInboxView("not-a-view")).toBe("all")
   })
 })

@@ -1,13 +1,10 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import {
-  ArrowRightIcon,
-  FlaskConicalIcon,
-  ReceiptIcon,
-  ShoppingCartIcon,
-} from "lucide-react"
+import { FlaskConicalIcon, ReceiptIcon, ShoppingCartIcon } from "lucide-react"
 
+import { Disclosure } from "@/components/cases/case-facts"
+import { FactList } from "@/components/fact-list"
 import { PageContainer, PageHeader } from "@/components/page-header"
 import { CheckStatusButton } from "@/components/payments/check-status-button"
 import { CreateCaseDialog } from "@/components/payments/create-case-dialog"
@@ -56,7 +53,7 @@ export default function PaymentsPage() {
     <PageContainer>
       <PageHeader
         title="Payments"
-        description="PayPal Sandbox connection, test checkout, and captured payments."
+        description="Test payments made with PayPal Sandbox money. Turn a paid one into a refund request."
       />
 
       <Alert>
@@ -93,31 +90,33 @@ async function IntegrationCard() {
   ])
 
   const rows = [
-    { label: "Environment", value: "PayPal Sandbox" },
+    { label: "Mode", value: "Sandbox (test money only)" },
+    {
+      label: "Last activity",
+      value: lastEvent
+        ? `${lastEvent.event_summary} (${formatDateTime(lastEvent.created_at)})`
+        : "Nothing yet",
+    },
+  ]
+  const technical = [
     { label: "REST API host", value: "api-m.sandbox.paypal.com" },
-    { label: "APIs", value: "Orders v2 · Payments v2 (captures, refunds)" },
+    { label: "APIs", value: "Orders v2, Payments v2 (captures, refunds)" },
     ...(connection.ok && connection.appId
       ? [{ label: "REST app", value: connection.appId }]
       : []),
-    {
-      label: "Last sandbox operation",
-      value: lastEvent
-        ? `${lastEvent.event_summary} (${formatDateTime(lastEvent.created_at)})`
-        : "None recorded",
-    },
   ]
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Integration</CardTitle>
+        <CardTitle>PayPal connection</CardTitle>
         <CardDescription>
-          Checked on the server. Credentials and tokens never reach the browser.
+          Checked just now. Keys never reach your browser.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium">Connection</span>
+          <span className="text-[0.9375rem] font-semibold">Status</span>
           {connection.ok ? (
             <Badge variant="success">Connected</Badge>
           ) : (
@@ -128,7 +127,7 @@ async function IntegrationCard() {
           <p className="text-sm text-muted-foreground">{connection.reason}</p>
         )}
         <Separator />
-        <dl className="grid gap-3 text-sm">
+        <dl className="grid gap-3 text-[0.9375rem]">
           {rows.map((row) => (
             <div
               key={row.label}
@@ -141,6 +140,9 @@ async function IntegrationCard() {
             </div>
           ))}
         </dl>
+        <Disclosure label="Technical details">
+          <FactList facts={technical} />
+        </Disclosure>
       </CardContent>
     </Card>
   )
@@ -154,10 +156,10 @@ async function CheckoutCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Test checkout</CardTitle>
+        <CardTitle>Make a test purchase</CardTitle>
         <CardDescription>
-          Pay with a PayPal Sandbox buyer account, then open a refund case for
-          the captured payment.
+          Pay with a PayPal Sandbox buyer account. Then turn the payment into a
+          refund request.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -169,11 +171,11 @@ async function CheckoutCard() {
               <EmptyMedia variant="icon">
                 <ShoppingCartIcon />
               </EmptyMedia>
-              <EmptyTitle>Checkout not available</EmptyTitle>
+              <EmptyTitle>Test purchases aren&apos;t available</EmptyTitle>
               <EmptyDescription>
                 {clientId
-                  ? "Your role can't run sandbox checkouts. Ask a reviewer or admin."
-                  : "PayPal Sandbox credentials aren't configured on the server."}
+                  ? "Your role can't make test purchases. Ask a reviewer or admin."
+                  : "PayPal Sandbox isn't set up on the server yet."}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -192,9 +194,9 @@ async function PaymentsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sandbox payments</CardTitle>
+        <CardTitle>Test payments</CardTitle>
         <CardDescription>
-          Payments created through Settlix. Only a completed capture can be
+          Payments made through Settlix. Only a completed payment can be
           refunded.
         </CardDescription>
       </CardHeader>
@@ -205,9 +207,9 @@ async function PaymentsCard() {
               <EmptyMedia variant="icon">
                 <ReceiptIcon />
               </EmptyMedia>
-              <EmptyTitle>No sandbox payments yet</EmptyTitle>
+              <EmptyTitle>No test payments yet</EmptyTitle>
               <EmptyDescription>
-                Run a test checkout to create one.
+                Make a test purchase above to create one.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -220,13 +222,13 @@ async function PaymentsCard() {
                   Amount
                 </TableHead>
                 <TableHead className="hidden @xl/main:table-cell">
-                  State
+                  Status
                 </TableHead>
                 <TableHead className="hidden @4xl/main:table-cell">
-                  PayPal IDs
+                  PayPal references
                 </TableHead>
                 <TableHead className="hidden @5xl/main:table-cell">
-                  Captured
+                  Paid on
                 </TableHead>
                 <TableHead className="text-right">
                   <span className="sr-only">Actions</span>
@@ -255,7 +257,7 @@ async function PaymentsCard() {
                         <span className="font-medium">
                           {payment.external_order_reference}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           {payment.description}
                         </span>
                         {/* Narrow screens fold amount and state into this cell. */}
@@ -274,14 +276,18 @@ async function PaymentsCard() {
                       <PaymentStateBadge state={payment.payment_state} />
                     </TableCell>
                     <TableCell className="hidden @4xl/main:table-cell">
-                      <dl className="grid gap-0.5 font-mono text-xs">
-                        <div className="flex gap-1">
+                      <dl className="grid gap-0.5 text-sm">
+                        <div className="flex gap-1.5">
                           <dt className="text-muted-foreground">Order</dt>
-                          <dd>{payment.paypal_order_id ?? "—"}</dd>
+                          <dd className="font-mono">
+                            {payment.paypal_order_id ?? "—"}
+                          </dd>
                         </div>
-                        <div className="flex gap-1">
-                          <dt className="text-muted-foreground">Capture</dt>
-                          <dd>{payment.paypal_capture_id ?? "—"}</dd>
+                        <div className="flex gap-1.5">
+                          <dt className="text-muted-foreground">Payment</dt>
+                          <dd className="font-mono">
+                            {payment.paypal_capture_id ?? "—"}
+                          </dd>
                         </div>
                       </dl>
                     </TableCell>
@@ -300,8 +306,7 @@ async function PaymentsCard() {
                               variant: "outline",
                             })}
                           >
-                            {linkedCase.case_number}
-                            <ArrowRightIcon data-icon="inline-end" />
+                            Open {linkedCase.case_number}
                           </Link>
                         ) : refundable && canCreate ? (
                           <CreateCaseDialog

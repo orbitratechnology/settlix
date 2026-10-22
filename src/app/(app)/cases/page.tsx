@@ -16,46 +16,51 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { parseInboxView } from "@/lib/cases/inbox"
 import { listCases } from "@/lib/data/cases"
 
 export const metadata: Metadata = {
-  title: "Resolution Inbox",
+  title: "Refund requests",
 }
 
-export default function CasesPage() {
+export default function CasesPage({ searchParams }: PageProps<"/cases">) {
   return (
     <PageContainer>
       <PageHeader
-        title="Resolution Inbox"
-        description="Prioritize, investigate, and resolve customer refund requests."
+        title="Refund requests"
+        description="Every refund a customer asked for. Open one to see what Claude found and decide."
         actions={
-          <Link href="/payments" className={buttonVariants()}>
+          <Link href="/payments" className={buttonVariants({ size: "lg" })}>
             <PlusIcon data-icon="inline-start" />
-            New case from payment
+            Add a request
           </Link>
         }
       />
-      <Suspense fallback={<CasesTableSkeleton />}>
-        <CasesTable />
+      <Suspense fallback={<CasesListSkeleton />}>
+        <CasesList searchParams={searchParams} />
       </Suspense>
     </PageContainer>
   )
 }
 
-async function CasesTable() {
-  const cases = await listCases()
+async function CasesList({
+  searchParams,
+}: {
+  searchParams: PageProps<"/cases">["searchParams"]
+}) {
+  const [cases, params] = await Promise.all([listCases(), searchParams])
 
   if (cases.length === 0) {
     return (
-      <Empty className="border">
+      <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <InboxIcon />
           </EmptyMedia>
-          <EmptyTitle>No refund cases yet</EmptyTitle>
+          <EmptyTitle>No refund requests yet</EmptyTitle>
           <EmptyDescription>
-            Cases appear here once they are created from a mapped PayPal Sandbox
-            payment or loaded as labeled demo data.
+            Add one from a PayPal Sandbox payment, or sign in to the demo store
+            to see example requests.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -64,24 +69,32 @@ async function CasesTable() {
             className={buttonVariants({ variant: "outline" })}
           >
             <CreditCardIcon data-icon="inline-start" />
-            Go to Payments
+            Go to payments
           </Link>
         </EmptyContent>
       </Empty>
     )
   }
 
-  return <CaseInbox rows={cases} />
+  return <CaseInbox rows={cases} initialView={parseInboxView(params.view)} />
 }
 
-function CasesTableSkeleton() {
+function CasesListSkeleton() {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3">
-        {Array.from({ length: 8 }, (_, index) => (
-          <Skeleton key={index} className="h-10 w-full" />
+    <>
+      <div className="flex gap-2">
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton key={index} className="h-10 w-32 rounded-full" />
         ))}
-      </CardContent>
-    </Card>
+      </div>
+      <Skeleton className="h-10 w-full" />
+      <Card className="py-2">
+        <CardContent className="flex flex-col gap-3 px-4 sm:px-6">
+          {Array.from({ length: 6 }, (_, index) => (
+            <Skeleton key={index} className="h-16 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </>
   )
 }

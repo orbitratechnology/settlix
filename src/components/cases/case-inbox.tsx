@@ -2,19 +2,12 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import {
-  ArrowDownIcon,
-  ArrowUpDownIcon,
-  ArrowUpIcon,
-  CircleAlertIcon,
-  SearchIcon,
-  XIcon,
-} from "lucide-react"
+import { SearchIcon, XIcon } from "lucide-react"
 
 import { CaseStatusBadge, OriginBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import {
   Empty,
   EmptyContent,
@@ -36,22 +29,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
   defaultInboxFilters,
   filterInbox,
   inboxCounts,
-  needsAttention,
   type InboxFilters,
   type InboxRow,
   type InboxSort,
+  type InboxView,
 } from "@/lib/cases/inbox"
 import {
   caseStatusMeta,
@@ -61,59 +45,56 @@ import {
 } from "@/lib/domain/labels"
 import { formatDate } from "@/lib/format"
 import { formatMoney } from "@/lib/money/amounts"
+import { cn } from "@/lib/utils"
 
 const QUICK_VIEWS = ["all", "attention", "open"] as const
+const quickViewLabels = {
+  all: "All",
+  attention: "Needs attention",
+  open: "Still open",
+} as const
 
 const sortItems: { label: string; value: InboxSort }[] = [
   { label: "Newest first", value: "newest" },
   { label: "Oldest first", value: "oldest" },
-  { label: "Highest amount", value: "amount_desc" },
-  { label: "Lowest amount", value: "amount_asc" },
+  { label: "Largest amount", value: "amount_desc" },
+  { label: "Smallest amount", value: "amount_asc" },
 ]
 
 const categoryItems = [
-  { label: "All categories", value: "all" },
+  { label: "Any reason", value: "all" },
   ...Object.entries(requestCategoryLabels).map(([value, label]) => ({
     label,
     value,
   })),
 ]
 
-function SortButton({
-  label,
-  active,
-  descending,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  descending: boolean
-  onClick: () => void
-}) {
-  const Icon = !active
-    ? ArrowUpDownIcon
-    : descending
-      ? ArrowDownIcon
-      : ArrowUpIcon
+function initials(name: string) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="-mx-2 h-7 px-2"
-      onClick={onClick}
-    >
-      {label}
-      <Icon data-icon="inline-end" className={active ? "" : "opacity-50"} />
-    </Button>
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
   )
 }
 
 /**
- * Resolution Inbox (FR-03): search, filter by status and category, sort by
- * date and amount, status counts, and attention indicators over stored rows.
+ * Refund requests (FR-03): search, quick views, filter by stage and reason,
+ * and sort, over stored rows. Each row opens the request.
  */
-export function CaseInbox({ rows }: { rows: InboxRow[] }) {
-  const [filters, setFilters] = useState<InboxFilters>(defaultInboxFilters)
+export function CaseInbox({
+  rows,
+  initialView = "all",
+}: {
+  rows: InboxRow[]
+  initialView?: InboxView
+}) {
+  const [filters, setFilters] = useState<InboxFilters>({
+    ...defaultInboxFilters,
+    view: initialView,
+  })
   const counts = inboxCounts(rows)
   const visible = filterInbox(rows, filters)
   const update = (patch: Partial<InboxFilters>) =>
@@ -122,7 +103,7 @@ export function CaseInbox({ rows }: { rows: InboxRow[] }) {
     filters.query !== "" || filters.view !== "all" || filters.category !== "all"
 
   const statusItems = [
-    { label: "Any status", value: "any" },
+    { label: "Any stage", value: "any" },
     ...(Object.keys(caseStatusMeta) as CaseStatus[]).map((status) => ({
       label: `${caseStatusMeta[status].label} (${counts.byStatus[status]})`,
       value: status,
@@ -133,125 +114,145 @@ export function CaseInbox({ rows }: { rows: InboxRow[] }) {
     : filters.view
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          value={
-            (QUICK_VIEWS as readonly string[]).includes(filters.view)
-              ? [filters.view]
-              : []
-          }
-          onValueChange={(value: string[]) =>
-            update({ view: (value[0] as InboxFilters["view"]) ?? "all" })
-          }
-          aria-label="Quick views"
-          className="flex-wrap"
-        >
-          <ToggleGroupItem value="all">All · {counts.all}</ToggleGroupItem>
-          <ToggleGroupItem value="attention">
-            Needs attention · {counts.attention}
-          </ToggleGroupItem>
-          <ToggleGroupItem value="open">Open · {counts.open}</ToggleGroupItem>
-        </ToggleGroup>
+    <div className="flex flex-col gap-5">
+      <div
+        role="group"
+        aria-label="Quick views"
+        className="flex flex-wrap gap-2"
+      >
+        {QUICK_VIEWS.map((view) => {
+          const active = filters.view === view
+          return (
+            <button
+              key={view}
+              type="button"
+              aria-pressed={active}
+              onClick={() => update({ view })}
+              className={cn(
+                "flex h-10 items-center gap-2 rounded-full border px-4 text-[0.9375rem] font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                active
+                  ? "border-foreground bg-foreground text-background"
+                  : "bg-background hover:bg-muted",
+              )}
+            >
+              {quickViewLabels[view]}
+              <span
+                className={cn(
+                  "rounded-full px-2 text-sm",
+                  active ? "bg-background/20" : "bg-muted",
+                )}
+              >
+                {counts[view]}
+              </span>
+            </button>
+          )
+        })}
+      </div>
 
-        <div className="grid gap-2 @2xl/main:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-          <InputGroup>
-            <InputGroupAddon>
-              <SearchIcon />
-            </InputGroupAddon>
-            <InputGroupInput
-              type="search"
-              aria-label="Search cases"
-              placeholder="Search case, customer, order, or issue"
-              value={filters.query}
-              onChange={(event) => update({ query: event.target.value })}
-            />
-          </InputGroup>
-          <Select
-            items={statusItems}
-            value={statusValue}
-            onValueChange={(value) =>
-              update({
-                view:
-                  value === "any" || value === null
-                    ? "all"
-                    : (value as CaseStatus),
-              })
-            }
+      <div className="grid gap-2 @2xl/main:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+        <InputGroup>
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            aria-label="Search requests"
+            placeholder="Search by customer, order, or problem"
+            value={filters.query}
+            onChange={(event) => update({ query: event.target.value })}
+          />
+        </InputGroup>
+        <Select
+          items={statusItems}
+          value={statusValue}
+          onValueChange={(value) =>
+            update({
+              view:
+                value === "any" || value === null
+                  ? "all"
+                  : (value as CaseStatus),
+            })
+          }
+        >
+          <SelectTrigger aria-label="Stage" className="w-full @2xl/main:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {statusItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Select
+          items={categoryItems}
+          value={filters.category}
+          onValueChange={(value) =>
+            update({
+              category: (value ?? "all") as InboxFilters["category"],
+            })
+          }
+        >
+          <SelectTrigger aria-label="Reason" className="w-full @2xl/main:w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {categoryItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Select
+          items={sortItems}
+          value={filters.sort}
+          onValueChange={(value) =>
+            update({ sort: (value ?? "newest") as InboxSort })
+          }
+        >
+          <SelectTrigger aria-label="Sort" className="w-full @2xl/main:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {sortItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm text-muted-foreground" role="status">
+          Showing {visible.length} of {rows.length} requests
+        </p>
+        {filtered ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters(defaultInboxFilters)}
           >
-            <SelectTrigger
-              aria-label="Status"
-              className="w-full @2xl/main:w-52"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {statusItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select
-            items={categoryItems}
-            value={filters.category}
-            onValueChange={(value) =>
-              update({
-                category: (value ?? "all") as InboxFilters["category"],
-              })
-            }
-          >
-            <SelectTrigger
-              aria-label="Category"
-              className="w-full @2xl/main:w-44"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {categoryItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select
-            items={sortItems}
-            value={filters.sort}
-            onValueChange={(value) =>
-              update({ sort: (value ?? "newest") as InboxSort })
-            }
-          >
-            <SelectTrigger aria-label="Sort" className="w-full @2xl/main:w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {sortItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+            <XIcon data-icon="inline-start" />
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {visible.length === 0 ? (
-        <Empty className="border">
+        <Empty className="border border-dashed">
           <EmptyHeader>
-            <EmptyTitle>No cases match</EmptyTitle>
+            <EmptyTitle>No requests match</EmptyTitle>
             <EmptyDescription>
-              Try another search or clear the filters.
+              Try another search, or clear the filters to see every request.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -265,159 +266,74 @@ export function CaseInbox({ rows }: { rows: InboxRow[] }) {
           </EmptyContent>
         </Empty>
       ) : (
-        <Card className="py-0">
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Case</TableHead>
-                  <TableHead className="hidden @3xl/main:table-cell">
-                    Order
-                  </TableHead>
-                  <TableHead className="hidden @xl/main:table-cell">
-                    Category
-                  </TableHead>
-                  <TableHead
-                    className="text-right"
-                    aria-sort={
-                      filters.sort === "amount_desc"
-                        ? "descending"
-                        : filters.sort === "amount_asc"
-                          ? "ascending"
-                          : "none"
-                    }
-                  >
-                    <SortButton
-                      label="Requested"
-                      active={filters.sort.startsWith("amount")}
-                      descending={filters.sort !== "amount_asc"}
-                      onClick={() =>
-                        update({
-                          sort:
-                            filters.sort === "amount_desc"
-                              ? "amount_asc"
-                              : "amount_desc",
-                        })
-                      }
-                    />
-                  </TableHead>
-                  <TableHead className="hidden @2xl/main:table-cell">
-                    Recommendation
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead
-                    className="hidden pr-4 text-right @4xl/main:table-cell"
-                    aria-sort={
-                      filters.sort === "newest"
-                        ? "descending"
-                        : filters.sort === "oldest"
-                          ? "ascending"
-                          : "none"
-                    }
-                  >
-                    <SortButton
-                      label="Created"
-                      active={
-                        filters.sort === "newest" || filters.sort === "oldest"
-                      }
-                      descending={filters.sort !== "oldest"}
-                      onClick={() =>
-                        update({
-                          sort: filters.sort === "newest" ? "oldest" : "newest",
-                        })
-                      }
-                    />
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((row) => (
-                  <InboxTableRow key={row.id} row={row} />
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
+        <Card className="gap-0 py-2">
+          <ul className="flex flex-col divide-y">
+            {visible.map((row) => (
+              <InboxItem key={row.id} row={row} />
+            ))}
+          </ul>
         </Card>
       )}
-
-      <p className="text-sm text-muted-foreground" role="status">
-        Showing {visible.length} of {rows.length} cases
-        {filtered ? (
-          <>
-            {" · "}
-            <button
-              type="button"
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-              onClick={() => setFilters(defaultInboxFilters)}
-            >
-              Clear filters
-            </button>
-          </>
-        ) : null}
-      </p>
     </div>
   )
 }
 
-function InboxTableRow({ row }: { row: InboxRow }) {
-  const attention = needsAttention(row)
+function InboxItem({ row }: { row: InboxRow }) {
+  const urgent = row.priority === "high" || row.priority === "urgent"
   return (
-    <TableRow>
-      <TableCell className="pl-4">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            {attention ? (
-              <CircleAlertIcon
-                className="size-4 shrink-0 text-warning"
-                aria-label="Needs attention"
-              />
-            ) : null}
-            <Link
-              href={`/cases/${row.id}`}
-              className="font-medium underline-offset-4 hover:underline"
-            >
-              {row.caseNumber}
-            </Link>
-            {row.priority === "high" || row.priority === "urgent" ? (
+    <li>
+      <Link
+        href={`/cases/${row.id}`}
+        className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2 px-4 py-4 outline-none hover:bg-muted/60 focus-visible:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset sm:px-6 @3xl/main:grid-cols-[2.5rem_minmax(0,1fr)_14rem_7rem_6.5rem] @3xl/main:items-center"
+      >
+        <span
+          aria-hidden
+          className="row-span-2 flex size-10 items-center justify-center rounded-full bg-field text-sm font-semibold text-accent-foreground @3xl/main:row-span-1"
+        >
+          {initials(row.customer)}
+        </span>
+
+        <span className="col-start-2 row-start-1 flex min-w-0 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-base font-semibold">
+              {row.customer}
+            </span>
+            {urgent ? (
               <Badge variant="warning">
-                {row.priority === "urgent" ? "Urgent" : "High"}
+                {row.priority === "urgent" ? "Urgent" : "High priority"}
               </Badge>
             ) : null}
-          </div>
-          <span className="text-xs text-muted-foreground">{row.customer}</span>
-        </div>
-      </TableCell>
-      <TableCell className="hidden @3xl/main:table-cell">
-        {row.orderReference}
-      </TableCell>
-      <TableCell className="hidden @xl/main:table-cell">
-        {requestCategoryLabels[row.category]}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {row.requestedMinor === null ? (
-          <span className="text-muted-foreground">Not stated</span>
-        ) : (
-          formatMoney(row.requestedMinor, row.currency)
-        )}
-      </TableCell>
-      <TableCell className="hidden @2xl/main:table-cell">
-        {row.latestAction ? (
-          <Badge variant={proposedActionMeta[row.latestAction].tone}>
-            {proposedActionMeta[row.latestAction].label}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">Not investigated</span>
-        )}
-      </TableCell>
-      <TableCell>
-        <div className="flex flex-wrap items-center gap-1">
+            <OriginBadge origin={row.origin} />
+          </span>
+          <span className="truncate text-[0.9375rem]">{row.claimedIssue}</span>
+          <span className="truncate text-sm text-muted-foreground">
+            {requestCategoryLabels[row.category]}, request {row.caseNumber}
+          </span>
+        </span>
+
+        <span className="col-span-2 col-start-2 row-start-2 flex flex-col items-start gap-1 @3xl/main:col-span-1 @3xl/main:col-start-3 @3xl/main:row-start-1">
           <CaseStatusBadge status={row.status} />
-          <OriginBadge origin={row.origin} />
-        </div>
-      </TableCell>
-      <TableCell className="hidden pr-4 text-right text-muted-foreground @4xl/main:table-cell">
-        {formatDate(row.createdAt)}
-      </TableCell>
-    </TableRow>
+          <span className="text-sm text-muted-foreground">
+            {row.latestAction
+              ? `Claude: ${proposedActionMeta[row.latestAction].label.toLowerCase()}`
+              : "Not checked yet"}
+          </span>
+        </span>
+
+        <span className="col-start-3 row-start-1 text-right @3xl/main:col-start-4">
+          {row.requestedMinor === null ? (
+            <span className="text-sm text-muted-foreground">No amount</span>
+          ) : (
+            <span className="text-base font-semibold">
+              {formatMoney(row.requestedMinor, row.currency)}
+            </span>
+          )}
+        </span>
+
+        <span className="hidden text-right text-sm text-muted-foreground @3xl/main:col-start-5 @3xl/main:row-start-1 @3xl/main:block">
+          {formatDate(row.createdAt)}
+        </span>
+      </Link>
+    </li>
   )
 }

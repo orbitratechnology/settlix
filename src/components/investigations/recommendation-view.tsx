@@ -1,17 +1,15 @@
 import Link from "next/link"
 import {
-  TriangleAlertIcon,
   BadgeCheckIcon,
-  BotIcon,
   CircleAlertIcon,
-  ExternalLinkIcon,
   HistoryIcon,
+  TriangleAlertIcon,
 } from "lucide-react"
 
+import { Disclosure } from "@/components/cases/case-facts"
 import { ReplyDraft } from "@/components/investigations/reply-draft"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import {
   eligibilityOutcomeMeta,
   factSourceLabels,
@@ -31,8 +29,8 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium">{title}</h3>
+    <section className="flex flex-col gap-2.5">
+      <h3 className="text-base font-semibold">{title}</h3>
       {children}
     </section>
   )
@@ -40,24 +38,19 @@ function Section({
 
 function TextList({
   items,
-  empty,
   tone = "default",
 }: {
   items: string[]
-  empty: string
   tone?: "default" | "warning"
 }) {
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">{empty}</p>
-  }
   return (
-    <ul className="flex flex-col gap-1.5 text-sm">
+    <ul className="flex flex-col gap-2 text-[0.9375rem]">
       {items.map((item) => (
-        <li key={item} className="flex gap-2">
+        <li key={item} className="flex gap-2.5">
           {tone === "warning" ? (
             <TriangleAlertIcon
               aria-hidden
-              className="mt-0.5 size-4 shrink-0 text-warning"
+              className="mt-0.5 size-4 shrink-0 text-warning-foreground dark:text-warning"
             />
           ) : (
             <span
@@ -72,7 +65,7 @@ function TextList({
   )
 }
 
-/** The latest Claude recommendation, kept visibly separate from source facts. */
+/** The latest Claude suggestion, kept visibly separate from source facts. */
 export function RecommendationView({
   record,
   stale,
@@ -98,80 +91,80 @@ export function RecommendationView({
         )
       : null
 
+  const findings = [
+    {
+      title: "What supports the request",
+      items: recommendation.evidenceFor,
+      tone: "default" as const,
+    },
+    {
+      title: "What doesn't add up",
+      items: recommendation.contradictions,
+      tone: "warning" as const,
+    },
+  ].filter((finding) => finding.items.length > 0)
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       {stale && decided ? (
-        <p className="flex gap-2 text-sm text-muted-foreground">
+        <p className="flex gap-2 text-[0.9375rem] text-muted-foreground">
           <HistoryIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-          Kept as the record for the refund decision. The payment and refund
-          history have changed since it ran.
+          Kept as the record behind the refund decision. The payment has changed
+          since Claude checked it.
         </p>
       ) : stale ? (
         <Alert>
           <HistoryIcon />
-          <AlertTitle>Records changed since this investigation</AlertTitle>
+          <AlertTitle>Something changed since Claude checked</AlertTitle>
           <AlertDescription>
-            The case, payment, refund history, or active policy is different
-            now. Re-run the investigation before deciding.
+            The request, the payment, earlier refunds, or your return policy are
+            different now. Check again before deciding.
           </AlertDescription>
         </Alert>
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">
-            <BotIcon data-icon="inline-start" />
-            AI recommendation
-          </Badge>
-          <Badge variant={action.tone}>{action.label}</Badge>
+        <span className="text-sm text-muted-foreground">Claude suggests</span>
+        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-2xl font-bold tracking-tight">
+            {action.label}
+          </span>
           {amount ? (
-            <span className="text-sm font-medium tabular-nums">{amount}</span>
+            <span className="text-2xl font-bold tracking-tight text-primary">
+              {amount}
+            </span>
           ) : null}
-        </div>
-        <p className="text-sm">{recommendation.summary}</p>
+        </p>
+        <p className="text-base">{recommendation.summary}</p>
       </div>
 
-      <Section title="Reasoning">
-        <p className="text-sm text-muted-foreground">
-          {recommendation.explanation}
-        </p>
-      </Section>
+      {recommendation.evidenceMissing.length > 0 ? (
+        <Section title="Missing information">
+          <TextList items={recommendation.evidenceMissing} tone="warning" />
+        </Section>
+      ) : null}
 
-      <Section title="Policy evidence">
+      <Section title="From your return policy">
         {citations.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No policy clause was cited.
+          <p className="text-[0.9375rem] text-muted-foreground">
+            Claude didn&apos;t quote a rule.
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {citations.map((citation, index) => (
               <li
                 key={`${citation.policyId}-${citation.clauseKey}-${index}`}
-                className="flex flex-col gap-2 rounded-lg border p-3"
+                className="flex flex-col gap-2.5 rounded-xl bg-muted px-4 py-3.5"
               >
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Badge variant="outline" className="font-mono">
-                    {citation.clauseKey}
-                  </Badge>
-                  <span className="font-medium">
-                    {citation.clauseTitle ?? "Unknown clause"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {citation.policyName ?? "Unknown policy"} · v
-                    {citation.policyVersion}
-                  </span>
-                </div>
-                <blockquote className="border-l-2 pl-3 text-sm italic">
-                  {citation.supportingQuote}
-                </blockquote>
-                <p className="text-sm text-muted-foreground">
-                  {citation.explanation}
-                </p>
                 <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[0.9375rem] font-semibold">
+                    Rule {citation.clauseKey}:{" "}
+                    {citation.clauseTitle ?? "Unknown rule"}
+                  </span>
                   {citation.valid ? (
                     <Badge variant="success">
                       <BadgeCheckIcon data-icon="inline-start" />
-                      Quote matches stored clause
+                      Quote checked
                     </Badge>
                   ) : (
                     <Badge variant="destructive">
@@ -181,87 +174,29 @@ export function RecommendationView({
                         : "Not verified"}
                     </Badge>
                   )}
-                  {citation.valid ? (
-                    <Link
-                      href={`/policies/${citation.policyId}#clause-${citation.clauseKey}`}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Open clause
-                      <ExternalLinkIcon aria-hidden className="size-3.5" />
-                    </Link>
-                  ) : null}
                 </div>
+                <blockquote className="text-base leading-relaxed">
+                  “{citation.supportingQuote}”
+                </blockquote>
+                <p className="text-[0.9375rem] text-muted-foreground">
+                  {citation.explanation}
+                </p>
+                {citation.valid ? (
+                  <Link
+                    href={`/policies/${citation.policyId}#clause-${citation.clauseKey}`}
+                    className="w-fit text-[0.9375rem] font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Read the rule in {citation.policyName ?? "the policy"}
+                  </Link>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </Section>
 
-      <div className="grid gap-5 @3xl/card:grid-cols-2">
-        <Section title="Supports the request">
-          <TextList
-            items={recommendation.evidenceFor}
-            empty="None identified."
-          />
-        </Section>
-        <Section title="Missing evidence">
-          <TextList
-            items={recommendation.evidenceMissing}
-            empty="Nothing required is missing."
-            tone="warning"
-          />
-        </Section>
-        <Section title="Contradictions">
-          <TextList
-            items={recommendation.contradictions}
-            empty="None found."
-            tone="warning"
-          />
-        </Section>
-        <Section title="Risk flags">
-          {recommendation.riskFlags.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None.</p>
-          ) : (
-            <ul className="flex flex-col gap-2 text-sm">
-              {recommendation.riskFlags.map((flag, index) => (
-                <li
-                  key={`${flag.code}-${index}`}
-                  className="flex flex-col gap-1"
-                >
-                  <Badge variant="warning">{riskFlagLabels[flag.code]}</Badge>
-                  <span className="text-muted-foreground">{flag.detail}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      </div>
-
-      {recommendation.extractedFacts.length > 0 ? (
-        <Section title="Facts Claude relied on">
-          <ul className="flex flex-col divide-y rounded-lg border text-sm">
-            {recommendation.extractedFacts.map((fact, index) => (
-              <li
-                key={`${fact.fact}-${index}`}
-                className="flex flex-col gap-1 p-3 @md/card:flex-row @md/card:items-start @md/card:justify-between @md/card:gap-4"
-              >
-                <span>{fact.fact}</span>
-                <span className="flex shrink-0 flex-wrap gap-1">
-                  <Badge variant="outline">
-                    {factSourceLabels[fact.source]}
-                  </Badge>
-                  <Badge variant="secondary">
-                    {fact.confidence} confidence
-                  </Badge>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      ) : null}
-
-      <Section title="Suggested customer reply">
-        <div className="rounded-lg bg-muted p-3">
+      <Section title="Reply to the customer">
+        <div className="rounded-xl bg-muted p-4">
           <ReplyDraft
             key={record.id}
             initial={recommendation.suggestedCustomerReply}
@@ -269,46 +204,103 @@ export function RecommendationView({
         </div>
       </Section>
 
-      <Separator />
+      <Disclosure label="Claude's full reasoning">
+        <div className="flex flex-col gap-6">
+          <Section title="Why">
+            <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
+              {recommendation.explanation}
+            </p>
+          </Section>
+          {findings.length > 0 ? (
+            <div className="grid gap-6 @3xl/card:grid-cols-2">
+              {findings.map((finding) => (
+                <Section key={finding.title} title={finding.title}>
+                  <TextList items={finding.items} tone={finding.tone} />
+                </Section>
+              ))}
+            </div>
+          ) : null}
 
-      <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-        <p>
-          Investigated{" "}
-          <time dateTime={record.createdAt}>
-            {formatDateTime(record.createdAt)}
-          </time>{" "}
-          · {record.modelId} · prompt {record.promptVersion}
-        </p>
-        {earlier.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="font-medium text-foreground">Earlier runs</span>
-            <ul className="flex flex-col gap-1">
-              {earlier.map((run) => (
-                <li
-                  key={run.id}
-                  className="flex flex-wrap items-center gap-1.5"
-                >
-                  <time dateTime={run.createdAt}>
-                    {formatDateTime(run.createdAt)}
-                  </time>
-                  <span aria-hidden>·</span>
-                  <span>
+          {recommendation.riskFlags.length > 0 ? (
+            <Section title="Warning signs">
+              <ul className="flex flex-col gap-3 text-[0.9375rem]">
+                {recommendation.riskFlags.map((flag, index) => (
+                  <li
+                    key={`${flag.code}-${index}`}
+                    className="flex flex-col items-start gap-1"
+                  >
+                    <Badge variant="warning">{riskFlagLabels[flag.code]}</Badge>
+                    <span className="text-muted-foreground">{flag.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+        </div>
+      </Disclosure>
+
+      <Disclosure label="Details for the record">
+        <div className="flex flex-col gap-5 text-[0.9375rem]">
+          {recommendation.extractedFacts.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <span className="font-semibold">Facts Claude relied on</span>
+              <ul className="flex flex-col gap-2">
+                {recommendation.extractedFacts.map((fact, index) => (
+                  <li
+                    key={`${fact.fact}-${index}`}
+                    className="flex flex-col gap-1"
+                  >
+                    <span>{fact.fact}</span>
+                    <span className="text-sm text-muted-foreground">
+                      From {factSourceLabels[fact.source].toLowerCase()},{" "}
+                      {fact.confidence} confidence
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <dl className="grid gap-1.5 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Checked</dt>
+              <dd>
+                <time dateTime={record.createdAt}>
+                  {formatDateTime(record.createdAt)}
+                </time>
+              </dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Model</dt>
+              <dd>{record.modelId}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Prompt version</dt>
+              <dd>{record.promptVersion}</dd>
+            </div>
+          </dl>
+          {earlier.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="font-semibold">Earlier checks</span>
+              <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+                {earlier.map((run) => (
+                  <li key={run.id}>
+                    <time dateTime={run.createdAt}>
+                      {formatDateTime(run.createdAt)}
+                    </time>
+                    {": "}
                     {
                       proposedActionMeta[
                         run.stored.recommendation.proposedAction
                       ].label
                     }
-                  </span>
-                  <span aria-hidden>·</span>
-                  <span>
-                    {eligibilityOutcomeMeta[run.eligibility.outcome].label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
+                    , {eligibilityOutcomeMeta[run.eligibility.outcome].label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </Disclosure>
     </div>
   )
 }

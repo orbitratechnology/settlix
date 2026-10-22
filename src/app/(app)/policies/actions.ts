@@ -52,15 +52,15 @@ const clauseSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{2,4}-[0-9]{1,3}$/, "Use an ID like FR-1 or EV-12."),
-  title: z.string().trim().min(1, "Give the clause a title.").max(160),
+  title: z.string().trim().min(1, "Give the rule a title.").max(160),
   clauseType: z.enum(Constants.public.Enums.clause_type, {
-    error: "Choose a clause type.",
+    error: "Choose a rule type.",
   }),
   content: z
     .string()
     .trim()
-    .min(1, "Write the clause text.")
-    .max(4000, "Keep a clause under 4,000 characters."),
+    .min(1, "Write the rule text.")
+    .max(4000, "Keep a rule under 4,000 characters."),
 })
 
 const idSchema = z.uuid()
@@ -295,7 +295,7 @@ export async function deleteClause(
   if (!member) return { error: notAllowed }
   const policy = await loadPolicy(member, policyId)
   if (!policy || !idSchema.safeParse(clauseId).success) {
-    return { error: "Clause not found." }
+    return { error: "Rule not found." }
   }
   if (policy.published_at) {
     return {
@@ -449,7 +449,7 @@ export async function activatePolicy(
     p_policy_id: policy.id,
   })
   if (error?.message.includes("at least one clause")) {
-    return { error: "Add at least one clause before publishing." }
+    return { error: "Add at least one rule before publishing." }
   }
   if (error) throw new Error("Could not activate the policy", { cause: error })
 
