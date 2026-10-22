@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table"
 import { getDashboardData } from "@/lib/data/dashboard"
 import { integrationConfig } from "@/lib/env/server"
+import { checkClaudeConnection } from "@/lib/ai/client"
 import { checkPayPalConnection } from "@/lib/paypal/client"
 import { formatDateTime } from "@/lib/format"
 import { formatMoney } from "@/lib/money/amounts"
@@ -65,10 +66,20 @@ export default function DashboardPage() {
   )
 }
 
+const claudeProblems = {
+  not_configured: "Not configured",
+  key_rejected: "Key rejected",
+  model_not_found: "Model not found",
+  unreachable: "Not reachable",
+} as const
+
 async function DashboardContent() {
   const data = await getDashboardData()
   const config = integrationConfig()
-  const paypal = config.paypal ? await checkPayPalConnection() : null
+  const [paypal, claude] = await Promise.all([
+    config.paypal ? checkPayPalConnection() : null,
+    checkClaudeConnection(),
+  ])
   const { counts } = data
 
   const metrics: Metric[] = [
@@ -130,9 +141,9 @@ async function DashboardContent() {
     {
       name: "Claude",
       detail: "Vercel AI SDK",
-      status: config.anthropic
-        ? { label: "Configured", tone: "outline" as const }
-        : { label: "Not configured", tone: "warning" as const },
+      status: claude.ok
+        ? { label: "Connected", tone: "success" as const }
+        : { label: claudeProblems[claude.reason], tone: "warning" as const },
     },
   ]
 

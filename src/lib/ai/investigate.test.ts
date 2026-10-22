@@ -136,7 +136,8 @@ describe("toInvestigationAiError", () => {
   test("maps provider failures to safe categories", () => {
     expect(toInvestigationAiError(apiError(429)).kind).toBe("rate_limited")
     expect(toInvestigationAiError(apiError(529)).kind).toBe("provider_error")
-    expect(toInvestigationAiError(apiError(401)).kind).toBe("not_configured")
+    expect(toInvestigationAiError(apiError(401)).kind).toBe("key_rejected")
+    expect(toInvestigationAiError(apiError(403)).kind).toBe("key_rejected")
     expect(
       toInvestigationAiError(new DOMException("slow", "TimeoutError")).kind,
     ).toBe("timeout")

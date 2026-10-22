@@ -31,6 +31,7 @@ export const MAX_PROMPT_CHARS = 60_000
 
 export type AiFailureKind =
   | "not_configured"
+  | "key_rejected"
   | "timeout"
   | "rate_limited"
   | "provider_error"
@@ -54,6 +55,8 @@ export class InvestigationAiError extends Error {
 export const aiFailureMessages: Record<AiFailureKind, string> = {
   not_configured:
     "Claude isn't configured. Add ANTHROPIC_API_KEY and ANTHROPIC_MODEL to the server environment.",
+  key_rejected:
+    "Anthropic rejected the API key or access to the model. Check ANTHROPIC_API_KEY and ANTHROPIC_MODEL in the server environment.",
   timeout: "Claude didn't respond in time. The case is unchanged; try again.",
   rate_limited:
     "Claude is rate limited right now. Wait a minute, then try again.",
@@ -151,7 +154,7 @@ export function toInvestigationAiError(error: unknown): InvestigationAiError {
     const status = error.statusCode ?? null
     if (status === 429) return new InvestigationAiError("rate_limited", status)
     if (status === 401 || status === 403) {
-      return new InvestigationAiError("not_configured", status)
+      return new InvestigationAiError("key_rejected", status)
     }
     if (status === 413) {
       return new InvestigationAiError("context_too_large", status)
