@@ -31,7 +31,10 @@ Hackathon 2026.
   `a11y.e2e.ts` runs axe-core (WCAG 2.1 A/AA) on every screen in light and dark mode after finite
   animations finish; serious or critical findings fail it. Keep status colors AA as text on their own
   10% tints. Specs read a request's status from `data-testid="case-status"`.
-- `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`);
+- `bun --conditions=react-server scripts/backfill-order-buyers.ts` — one-off: reads the buyer's email
+  from PayPal for sandbox payments recorded before Phase 9.
+- `bun run db:seed` — idempotent, insert-only demo data + public demo account (`src/lib/demo.ts`,
+  incl. the demo form orders HP-10452 / HP-10458);
   policy versions already present (by ID, or by name + version if created in the app) are skipped
 - `bun run paypal:smoke create` / `finish <ORDER_ID>` — real sandbox adapter proof (approve the order
   with the sandbox buyer in between).
@@ -47,8 +50,17 @@ Hackathon 2026.
   `generate_typescript_types`. Never edit applied migrations; add a new one.
 - Test triggers/constraints with `execute_sql` inside `begin; … rollback;`.
 - The Supabase connector can hang (60 s timeout, nothing applied) on some SQL: seen with function
-  bodies where an advisory lock or another statement precedes `delete from`. Bisect in
-  `begin; … rollback;` and restructure (e.g. `insert … on conflict do update` instead of pruning).
+  bodies where an advisory lock or another statement precedes `delete from`, and with any
+  `drop column` / `drop index` (it seems to wait for a confirmation that never shows). Bisect in
+  `begin; … rollback;` and restructure (e.g. `insert … on conflict do update` instead of pruning;
+  `rename` instead of drop + add).
+- Phase 9 tables: `case_messages` (append-only conversation, sender customer / merchant /
+  settlix, channel form / status_page / gmail), `inbound_emails` (Gmail imports; to_sort /
+  case_created / follow_up / dismissed), `gmail_connections` (service role only: encrypted tokens,
+  RLS on, no policies), `private.keyed_rate_limits` + `consume_keyed_rate_limit()` (per-visitor
+  limits, hashed IP). Orders keep `customer_email` / `customer_name` (from PayPal's payer at
+  capture); cases keep `channel`, `channel_source` (`?via=` tag), `customer_verified`,
+  `status_token` (64 hex), `gmail_thread_id` (fixed once linked).
 - Access model: `authenticated` can only `SELECT` its merchant's rows (RLS via
   `private.current_user_merchant_ids()`); `anon` has nothing. **All writes go through server-only code**
   using `createAdminClient()` after `requireMember()` + a role check (`can.*`), always scoping by the
@@ -109,6 +121,25 @@ Hackathon 2026.
   production, the `x-settlix-test-fault` header picks a named scenario (`ai_timeout`,
   `ai_invalid_output`, `paypal_lost_response`, and PayPal sandbox negative testing via
   `PayPal-Mock-Response`). Ignored otherwise; the PayPal adapter refuses mock codes when it's off.
+- `src/lib/intake/` — customer intake. Pure: `references.ts` (order number / PayPal transaction ID
+  matching, candidates in email text), `classify.ts` (free keyword classifier + issue summary),
+  `customer-status.ts` (what the status page says; "needs information" only after a merchant
+  message), `messages.ts` (links, acknowledgement, reply and evidence drafts, mailto), `tokens.ts`,
+  `form.ts` (Zod), `sources.ts` (labels). Server: `service.ts` (`findPublicStore`, `matchOrder`,
+  `submitPublicRequest`, `addCustomerMessage`, `autoCheckRequest` with the `investigation.auto`
+  cap), `outbound.ts` (`postStoreMessage`: status page always, Gmail when asked;
+  `acknowledgeRequest`: verified buyers only), `status-page.ts`.
+- `src/lib/gmail/` — `oauth.ts` (Google OAuth + PKCE, granted scopes, ID token checks), `crypto.ts`
+  (AES-256-GCM, context-bound), `mime.ts` (outgoing RFC 5322), `parse.ts` (incoming: text, quotes,
+  attachments, sender authentication from Gmail's topmost Authentication-Results), `client.ts`
+  (token refresh → `needs_reconnect`, send, list/get), `sync.ts` (search query, thread follow-ups,
+  verified-buyer requests, emails to sort), `connect.ts` (sealed state cookie). Routes:
+  `/api/integrations/gmail/callback`, `/api/cron/gmail-sync` (Bearer `CRON_SECRET`, `vercel.json`).
+- Customer pages: `src/app/(customer)/r/[slug]` (public form; server action → `after()` acknowledge
+  - auto-check → redirect to the status page) and `/status/[token]`. Merchant pages: `/request-form`
+    (link, QR via `uqr`, share text, switches, Gmail card), `/request-form/card` (print, in the
+    `(print)` group), `/cases/emails` (emails to sort). `runInvestigation()` in
+    `src/lib/investigations/service.ts` runs a check for a member or for Settlix (system actor).
 - `src/lib/cases/` — `inbox.ts` (search/filter/sort/counts), `actions.ts` (which status moves note,
   request evidence, send to review, and decline allow); server actions in `cases/[caseId]/actions.ts`.
 - `src/lib/receipts/receipt.ts` (receipt state, factual reply, copyable summary) +
@@ -177,6 +208,10 @@ Hackathon 2026.
 - Audit events are append-only. Logs never contain tokens, auth headers, or secrets.
 - Seeded data is labeled as demo data and never claims a real refund happened.
 - `SETTLIX_TEST_FAULTS` is for local/E2E runs only: never set it in a deployed environment.
+- Customer intake: a public request needs a paid order of the store plus the buyer's email; the
+  status page needs its token and never shows AI output. Settlix emails a customer only when a
+  merchant sends a message, except the acknowledgement to a verified buyer. Gmail can't be
+  connected to a demo workspace (its sign-in is public).
 
 ## Tooling available to agents
 
@@ -200,4 +235,7 @@ environment variables in the cloud environment settings; a new session picks the
 Cloud sessions don't pass `ANTHROPIC_API_KEY` through to the agent (the name appears reserved for
 Claude Code itself), so store the key as `SETTLIX_ANTHROPIC_API_KEY` there and prefix commands
 that need it: `ANTHROPIC_API_KEY="$SETTLIX_ANTHROPIC_API_KEY" bun run dev` (or `ai:eval`). The app
-itself only reads `ANTHROPIC_API_KEY` (set it normally on Vercel).
+itself only reads `ANTHROPIC_API_KEY` (set it normally on Vercel). Gmail is optional and stays
+off until `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and a 32-byte base64 `SETTLIX_ENCRYPTION_KEY`
+are set (the Google client needs `<origin>/api/integrations/gmail/callback` as a redirect URI);
+`CRON_SECRET` enables the daily Gmail check.

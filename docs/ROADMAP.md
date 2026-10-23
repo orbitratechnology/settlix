@@ -376,6 +376,56 @@ type Schibsted Grotesk, palette kept from the PayPal brand), app "Framed sheet" 
   warnings reviewed.
 - **Exit:** approved by the user and merged to `main` (fast-forward), which Vercel deploys.
 
+## Phase 9 — Customer requests: form, links and QR, status page, Gmail 🟡
+
+Asked by the user after the cost review: let buyers reach the store wherever they bought, at no
+running cost, and close the loop back to them. Scope: public request form, links + QR + printable
+card, the customer's status page, Claude checking requests on arrival, messages to the customer,
+and Gmail as an option with the lowest-friction OAuth.
+
+- Migrations `20261022152450_request_intake.sql` and `20261022172300_status_token.sql` (applied;
+  12 rolled-back guard checks pass): buyer email/name on orders (demo orders backfilled from their
+  cases; `scripts/backfill-order-buyers.ts` read 30 sandbox buyers back from PayPal), form settings
+  on merchants, case channel / link tag / customer match / status token / Gmail thread (channel and
+  a linked thread are immutable), append-only `case_messages`, `inbound_emails`,
+  `gmail_connections` (service role only), `consume_keyed_rate_limit()` for anonymous visitors.
+  Advisors: only the expected "RLS on, no policy" notices for the service-role tables.
+- Public request form `/r/<store>` (no account, no captcha): order number or PayPal Transaction ID
+  plus the buyer's email must match a paid order; one vague answer for every mismatch; honeypot;
+  10 tries per visitor and 60 per store per hour. A second message about an open request joins it
+  (demo stores always open a new one). Success lands on the customer's status page. Demo store:
+  two demo orders to try (HP-10452, HP-10458).
+- Status page `/status/<token>`: received → being reviewed → decision → refunded, the messages, and
+  a reply box. No AI output, checks or IDs; "refunded" only after PayPal confirmed; "needs
+  information" only after the store actually asked (a status set by Claude alone isn't a question to
+  the customer). Not indexed, no referrer.
+- Automatic Claude check of new requests and of answers the store waited for (`after()`), capped at
+  20 per store per hour, switchable per store, skipped when Claude isn't configured.
+- Merchant: **Request form** page (link, QR via `uqr`, SVG download, printable card, ready-made
+  text for signature / order confirmation / website / chat with `?via=` tags, "where requests came
+  from", switches for the form and the automatic check); inbox rows say where a request came from;
+  the request page shows how it came in and whether the buyer matched, and a **Messages** card with
+  the conversation and a composer (Claude's draft, or a factual message from PayPal's record once
+  refunded): sends from Gmail, or posts to the customer's page and opens the merchant's email app.
+  "Ask the customer for more" can send its message directly.
+- Gmail (optional): one consent screen with only the ticked permissions (send replies / bring in
+  refund emails), PKCE, sealed state cookie, granular consent respected, tokens AES-256-GCM
+  encrypted and merchant-bound, refused refresh → "Reconnect Gmail" (one click, account filled in),
+  disconnect revokes. Sync asks Gmail only for refund-looking inbox mail: thread replies join their
+  request, an email from the order's buyer with a Gmail-verified sender opens one, the rest go to
+  **Emails to sort** (pick the order or dismiss). Checked when the inbox opens (if older than 3
+  minutes), on "Check Gmail now", and daily via Vercel Cron. Blocked for demo workspaces.
+- Verified so far: unit tests (intake + Gmail helpers), integration tests against Supabase with a
+  Google double (form matching, follow-ups, limits, status page, store messages, sync, send in
+  thread, reconnect), Playwright E2E-09 / E2E-10 and axe on every new screen (light + dark), one
+  real form request in the E2E store checked by Claude on arrival (STX-1088 → Waiting on customer).
+- Final verification: `bun run check` (210 tests, incl. integration), clean `next build`,
+  Playwright 11/11 deterministic (incl. E2E-09/10 and axe light + dark on every screen), and live
+  E2E-01 against the real sandbox after the capture change: STX-1116, buyer email stored, refund
+  `4BS7750022184061Y` COMPLETED.
+- Waiting on the user: a Google OAuth client (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`), an
+  encryption key (`SETTLIX_ENCRYPTION_KEY`) and `CRON_SECRET`, to try Gmail for real.
+
 ## After MVP (only on request)
 
 P1: AG Grid case queue (sponsor target), PayPal webhook reconciliation, richer policy management,

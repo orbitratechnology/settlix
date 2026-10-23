@@ -35,6 +35,25 @@ with policy, and auditable.
 
 ## 3. Features
 
+- **A refund request form for customers**: one link per store (`/r/<store>`), no account and no
+  captcha. The customer types their order number (or the Transaction ID from PayPal's receipt) and
+  the email they paid with; a request opens only when both match a paid order. Share it as a QR
+  code, a printable card, or ready-made text for an email signature, order confirmation, website
+  button, or chat. Each link is tagged so the merchant sees which one customers use.
+- **A private status page for every request** (`/status/<token>`): where the request stands
+  (received, being reviewed, decision, refunded), the messages between customer and store, and a
+  box to reply. It never shows Claude's suggestion, and it only says "refunded" once PayPal confirmed
+  it.
+- **Claude checks new requests on arrival** (optional, about $0.002 per check, capped at 20 an
+  hour per store), and again when the customer sends information the store asked for. Claude still
+  only suggests.
+- **Messages to the customer** from the request page: Claude's draft (or a factual refund message
+  once PayPal confirmed), sent from the store's Gmail in the same thread, or posted to the
+  customer's page and opened in the merchant's own email app.
+- **Gmail, optional**: one Google screen connects it. Settlix can send replies from the merchant's
+  address and bring in refund emails: a reply in a request's thread joins that request, an email
+  from the order's buyer (sender verified by Gmail) opens one, and anything else waits in "Emails to
+  sort". It checks when the inbox opens, on "Check Gmail now", and once a day.
 - **Refund requests** (the inbox): search, quick views, filter by stage and reason, sort by date or
   amount, the latest suggestion from Claude per request; the Overview's stages link straight to a
   filtered view.
@@ -77,6 +96,7 @@ flowchart LR
   subgraph Browser
     UI["Next.js UI<br/>(shadcn/ui)"]
     SDK["PayPal JS SDK v6<br/>buyer approval"]
+    CUST["Customer<br/>request form + status page"]
   end
   subgraph Server["Next.js server (App Router)"]
     API["Route handlers + server actions<br/>auth, same-origin, Zod, rate limits"]
@@ -84,10 +104,12 @@ flowchart LR
     ENG["Eligibility engine<br/>deterministic checks"]
     REF["Refund service<br/>claim → PayPal → outcome"]
     PP["PayPal adapter<br/>sandbox-only, server-only"]
+    INT["Intake service<br/>order match, messages, auto-check"]
   end
   DB[("Supabase Postgres<br/>RLS, guards, claim + outcome functions")]
   CL["Claude API"]
   PAY["PayPal Sandbox<br/>Orders v2 · Payments v2"]
+  GM["Gmail API<br/>(optional)"]
 
   UI --> API
   SDK --> PAY
@@ -98,6 +120,10 @@ flowchart LR
   API --> DB
   AI --> DB
   REF --> DB
+  CUST --> INT
+  INT --> AI
+  INT --> DB
+  INT --> GM
 ```
 
 - The browser only ever sends IDs (a catalog item, a PayPal order ID, a case ID) and a
@@ -111,10 +137,14 @@ flowchart LR
   order, and `claim_refund_attempt()` / `record_refund_outcome()` for atomic state changes.
 - The AI is advisory: it gets read-only, merchant-scoped context and no tools. It can't approve,
   refund, or override a failed check.
+- Customer pages have no session: the store comes from the link, a request needs a paid order
+  plus the buyer's email, the status page needs its 64-character token, and every write is rate
+  limited per visitor and per store.
 
 Code map: `src/app` (routes), `src/lib/ai` (prompt, schema, Claude call, evals),
 `src/lib/policy` (eligibility engine, citation validation), `src/lib/investigations`,
 `src/lib/refunds`, `src/lib/paypal` (adapter), `src/lib/payments` (checkout), `src/lib/receipts`,
+`src/lib/intake` (request form, status page, messages), `src/lib/gmail` (OAuth, sync, send),
 `supabase/migrations`, `tests/`. See [`CLAUDE.md`](CLAUDE.md) for a fuller guide.
 
 ## 5. Technologies used
@@ -148,6 +178,10 @@ cp .env.example .env.local   # then fill in the values (see below)
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`                         | Server only (the client ID is also used by the JS SDK) |
 | `PAYPAL_BASE_URL`                                                  | Optional; only the sandbox URL is accepted             |
 | `PAYPAL_SANDBOX_BUYER_EMAIL`, `PAYPAL_SANDBOX_BUYER_PASSWORD`      | Live end-to-end tests only                             |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                         | Optional, server only: "Connect Gmail" (section 11)    |
+| `SETTLIX_ENCRYPTION_KEY`                                           | Optional, server only: encrypts Gmail tokens at rest   |
+| `CRON_SECRET`                                                      | Optional: the daily Gmail check (Vercel Cron)          |
+| `SETTLIX_SITE_URL`                                                 | Optional: pins the origin used in links and redirects  |
 | `SETTLIX_TEST_FAULTS`, `E2E_LIVE`                                  | Tests only; never set in a deployed environment        |
 
 Then apply the database (next section), seed it, and start the app:
@@ -200,7 +234,42 @@ bun run ai:eval --runs 3   # writes evals/results/*.json; never touches the data
 Check the connection on the **Payments** page (it shows the REST app ID, never the secret).
 `bun run paypal:smoke create` / `finish <ORDER_ID>` proves the adapter end to end without the UI.
 
-## 11. Create and capture a test payment
+## 11. Request form, status page, and Gmail
+
+**The request form works without any setup.** Open **Request form** in the sidebar: copy the link,
+download the QR code, print a card, or copy ready-made text. On the demo store, the form
+(`/r/harbor-pine-demo`) offers two demo orders to try (HP-10452 with `sam.rivera@example.com`,
+HP-10458 with `ana.souza@example.com`); the request appears in the demo store's dashboard and the
+customer lands on their status page.
+
+Settlix matches a request to an order by the store's order number or PayPal's Transaction ID, plus
+the buyer's email. Sandbox payments keep the PayPal buyer's email from the capture
+(`scripts/backfill-order-buyers.ts` fills it in for payments made before Phase 9).
+
+**Gmail (optional)** needs a Google OAuth client:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and enable
+   the **Gmail API**.
+2. Under **Google Auth Platform**, set up the consent screen: user type **External**, app name
+   "Settlix", your support email. Add the scopes `openid`, `email`, `gmail.send`, and
+   `gmail.readonly`. While the app is in **Testing**, add each merchant's Google account as a test
+   user.
+3. Create an **OAuth client ID** of type **Web application** with these authorized redirect URIs:
+   `http://localhost:3000/api/integrations/gmail/callback` and
+   `https://<your-domain>/api/integrations/gmail/callback`.
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `SETTLIX_ENCRYPTION_KEY`
+   (`openssl rand -base64 32`). For the daily check on Vercel, also set `CRON_SECRET`
+   (`vercel.json` schedules `/api/cron/gmail-sync` once a day, which the Hobby plan allows).
+5. In Settlix, **Request form → Gmail → Connect Gmail**. Untick either permission if you only want
+   one. Gmail can't be connected to the shared demo store.
+
+What Google requires: in **Testing**, Google limits the app to 100 test users and ends access after
+7 days; Settlix then shows "Reconnect Gmail", one click with the account filled in. To publish the
+app, Google verifies it: `gmail.send` is a _sensitive_ scope (verification, no fee);
+`gmail.readonly` is a _restricted_ scope that also needs a yearly third-party security assessment.
+A store that only wants to send replies can connect with "Send replies" alone.
+
+## 12. Create and capture a test payment
 
 1. Sign in (the demo account works) and open **Payments**.
 2. Choose a test item and click **Pay with PayPal**.
@@ -209,7 +278,7 @@ Check the connection on the **Payments** page (it shows the REST app ID, never t
 4. Settlix captures the order on the server and lists the payment as **Paid** under **Test
    payments**, with its PayPal order and payment (capture) IDs under **PayPal references**.
 
-## 12. Investigate and approve a refund
+## 13. Investigate and approve a refund
 
 1. On the paid payment, click **Create request** and enter the customer's request. A payment that
    is only minutes old fits one honest scenario: the customer asks to **cancel before dispatch**
@@ -228,7 +297,7 @@ To see Settlix decline to act, open a seeded case such as **DEMO-103** (no photo
 claim: Claude asks for evidence, no refund action) or **DEMO-109** (prompt injection in the
 customer message: flagged and sent to review).
 
-## 13. Verify the receipt
+## 14. Verify the receipt
 
 Click **Open receipt** (or **Receipt** on the case). The Resolution Receipt shows the recommended
 vs. actual outcome, the approver and time, the refund attempt and **PayPal refund ID**, the HTTP
@@ -236,7 +305,7 @@ status PayPal returned, the decision basis, verified policy evidence, the mapped
 a factual customer reply, and the audit timeline. You can confirm the refund in the sandbox Business
 account's activity, or with `GET /v2/payments/refunds/{id}`.
 
-## 14. Tests
+## 15. Tests
 
 ```bash
 bun run check      # lint, format check, typecheck, unit + integration tests (Bun)
@@ -246,15 +315,22 @@ bun run test:e2e   # Playwright suite (see below)
 
 - **Unit** (`*.test.ts` next to the code): money conversion, eligibility rules, citation
   validation, context hashing, prompt escaping, AI failure mapping, PayPal adapter (mocked
-  `fetch`), refund outcome mapping, receipts, inbox filtering, test-fault guards.
+  `fetch`), refund outcome mapping, receipts, inbox filtering, test-fault guards, order-number
+  matching, the request classifier, customer-facing statuses and drafts, token encryption, Google
+  OAuth (PKCE, granted scopes, ID token checks), outgoing email building (header injection), and
+  incoming email parsing (quotes, attachments, sender authentication).
 - **Integration** (`tests/integration/`, against your Supabase project; skipped without env):
   row-level security and merchant isolation, policy immutability, the investigation service with a
   mock model (incl. timeouts and invalid output), and the refund workflow with a PayPal test double
   (concurrent approvals, tampered amounts, rejection, pending, unknown outcome → reconciliation with
-  the same request, partial refunds, other merchants, rate limits). Each run creates its own test
-  merchant.
+  the same request, partial refunds, other merchants, rate limits), the public request form (order
+  and email matching, amounts, follow-ups, per-visitor limits), the status page and store messages,
+  and the Gmail sync and send with a Google double. Each run creates its own test merchant.
 - **End to end** (`tests/e2e/*.e2e.ts`, Playwright): PRD §17.3 E2E-01 to E2E-08 plus a PayPal
-  decline, and an axe-core WCAG 2.1 AA audit of every screen in light and dark mode. The suite uses
+  decline; E2E-09 (a signed-out customer asks through the form, the store asks for more, the
+  customer replies on their status page) and E2E-10 (form link, QR code, printable card, pausing
+  the form); and an axe-core WCAG 2.1 AA audit of every screen, customer pages included, in light
+  and dark mode. The suite uses
   its own "Settlix E2E Store" workspace. Specs that need the real PayPal Sandbox and Claude run only
   with `E2E_LIVE=1`; they drive the real PayPal buyer window and read PayPal's own records back. The
   model-failure and lost-response scenarios use a test-only fault switch that only works outside
@@ -263,18 +339,19 @@ bun run test:e2e   # Playwright suite (see below)
 Tests that use PayPal test doubles prove software behavior, not real refunds; the live end-to-end
 specs and the receipts above are the real sandbox evidence.
 
-## 15. Deployment (Vercel)
+## 16. Deployment (Vercel)
 
 1. Import the repository in [Vercel](https://vercel.com/new); the Next.js preset and `bun.lock` are
    detected automatically.
 2. Add the environment variables from section 7 (not the test-only ones) to the Production
-   environment.
+   environment. For Gmail, add the production callback URL to the Google OAuth client (section 11)
+   and set `CRON_SECRET` for the daily check.
 3. Deploy, then set the Supabase Site URL to the deployment URL (section 8).
 4. Check from a fresh browser: the landing page, sign-in with the demo account, the dashboard's
    integration health (Supabase, PayPal, Claude), and one checkout → case → investigate → approve
    → receipt run.
 
-## 16. Security notes
+## 17. Security notes
 
 - Secrets (`SUPABASE_SECRET_KEY`, `PAYPAL_CLIENT_SECRET`, `ANTHROPIC_API_KEY`) are read only by
   server-only modules; only `NEXT_PUBLIC_*` values reach the browser.
@@ -290,8 +367,21 @@ specs and the receipts above are the real sandbox evidence.
 - The PayPal adapter refuses any non-sandbox base URL. Logs carry PayPal debug IDs and sanitized
   summaries, never tokens or authorization headers.
 - The public demo account belongs to the demo workspace only and can only make sandbox payments.
+- Public form: the store comes from the link, never from the form; a request needs a paid order
+  of that store and the buyer's email (one vague answer for every mismatch); a hidden honeypot
+  field; 10 attempts per visitor (hashed IP) and 60 per store per hour, in Postgres.
+- Status pages are found only by a random 64-character token; they're never indexed, never sent
+  as a referrer, and show no AI output, checks, notes, or IDs.
+- Automatic emails (the confirmation) go only to a buyer the form or Gmail verified, so the public
+  form can't make a store email strangers. Everything else is sent only when a merchant clicks
+  Send.
+- Gmail: OAuth with PKCE and a sealed, short-lived state cookie; only the permissions the merchant
+  ticks (Google's granular consent respected); refresh and access tokens encrypted with AES-256-GCM,
+  bound to the merchant, in a table no client role can read; disconnect revokes the token at Google.
+  Settlix asks Gmail only for refund-looking mail, never changes or deletes email, and never
+  downloads attachments. Email content is untrusted data, like any customer message.
 
-## 17. Known limitations
+## 18. Known limitations
 
 - **Sandbox only.** Settlix refuses non-sandbox PayPal URLs; no real payments are processed.
 - **No PayPal webhooks yet.** A refund PayPal reports as pending stays pending until someone clicks
@@ -306,11 +396,19 @@ specs and the receipts above are the real sandbox evidence.
   outcome on the PRD scenarios), but a re-run can reach a more cautious outcome.
 - **Manual review has no separate approval path.** A reviewer resolves a "Needs review" case by
   adding notes and re-running the investigation, or by declining it.
-- **Customer replies are drafts.** Settlix never sends messages.
+- **Orders must be known to Settlix.** The request form matches PayPal payments Settlix recorded
+  (the in-app sandbox checkout and demo orders); there is no import from other shops or platforms
+  yet.
+- **Gmail in Google's Testing mode** ends access after 7 days (one-click reconnect) and allows 100
+  test users; publishing needs Google's verification (section 11).
+- **Attachments stay in Gmail.** Settlix notes that a customer attached a photo, but Claude can't
+  see it; the merchant adds a note after looking.
+- **Gmail is checked, not pushed.** New emails arrive when someone opens the inbox, clicks "Check
+  Gmail now", or once a day.
 - **The demo account is shared**, so anyone using it sees the same demo workspace and its sandbox
   activity.
 
-## 18. Demo video
+## 19. Demo video
 
 _Link added after recording._ The script follows PRD §19: the problem (0:00), the inbox (0:15), the
 AI investigation with cited clauses and checks (0:35), approval (1:05), the real sandbox refund and
